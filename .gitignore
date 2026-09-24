@@ -1,0 +1,58 @@
+# Entornos y cachés de Python
+.venv/
+venv/
+__pycache__/
+*.py[cod]
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# Dependencias y artefactos del frontend
+node_modules/
+.next/
+.vercel/
+*.tsbuildinfo
+
+# Variables locales y secretos; se conservan solo las plantillas
+.env
+.env.*
+!.env.example
+!.env.backend.example
+!frontend/.env.local.example
+
+# Dataset y paquetes descargados
+data/raw/
+*.zip
+*.tar
+*.tar.gz
+
+# Descargas de procedencia: conservar únicamente su atribución textual
+provenance/*
+!provenance/rocole_mendeley_v2/
+provenance/rocole_mendeley_v2/*
+!provenance/rocole_mendeley_v2/README.md
+
+# Experimentos, respaldos y checkpoints; solo se publica el modelo desplegable
+experiments/
+backups/
+backup/
+*.pt
+!models/mobilenet_finetuned_epoch6.pt
+
+# Capturas locales que contienen ejemplos del dataset
+reports/web_ui_verification/*.png
+
+# Archivos temporales, logs y metadatos del sistema/editor
+*.log
+*.tmp
+*.temp
+*.bak
+*.swp
+*~
+.DS_Store
+Thumbs.db
+.idea/
+.codex/
+.agents/

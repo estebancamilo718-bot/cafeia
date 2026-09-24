@@ -1,0 +1,28 @@
+{
+  "url": "http://127.0.0.1:3000",
+  "responsiveGridColumns": {
+    "390": "358px",
+    "768": "342.5px 342.5px",
+    "1440": "530px 530px"
+  },
+  "replacementWorked": true,
+  "uncertainState": {
+    "title": "Resultado incierto",
+    "hasSecondary": true,
+    "exposesInternalId": false
+  },
+  "acceptedTitle": "Clasificación orientativa: Hoja sana",
+  "connectionError": true,
+  "keyboardFocus": {
+    "id": "leaf-photo",
+    "ariaLabel": "Reemplazar fotografía de la hoja"
+  },
+  "screenshots": [
+    "accepted_1440.png",
+    "connection_error_1440.png",
+    "initial_1440.png",
+    "initial_390.png",
+    "initial_768.png",
+    "uncertain_390.png"
+  ]
+}

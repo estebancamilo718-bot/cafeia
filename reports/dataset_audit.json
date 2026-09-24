@@ -1,0 +1,79 @@
+{
+  "conflicting_files_excluded": 24,
+  "conflicts": [
+    [
+      "coffee___healthy/C12P36E1.jpg",
+      "coffee___red_spider_mite/C11P23E1.jpg"
+    ],
+    [
+      "coffee___red_spider_mite/C10P23E2.jpg",
+      "coffee___rust/C12P32E2.jpg"
+    ],
+    [
+      "coffee___red_spider_mite/C10P26E2.jpg",
+      "coffee___rust/C12P36E2.jpg"
+    ],
+    [
+      "coffee___red_spider_mite/C10P30E2.jpg",
+      "coffee___rust/C12P40E2.jpg"
+    ],
+    [
+      "coffee___red_spider_mite/C10P30H2.jpg",
+      "coffee___rust/C12P40H2.jpg"
+    ],
+    [
+      "coffee___red_spider_mite/C11P15H2.jpg",
+      "coffee___rust/C12P25H2.jpg"
+    ],
+    [
+      "coffee___red_spider_mite/C11P19E2.jpg",
+      "coffee___rust/C12P29E2.jpg"
+    ],
+    [
+      "coffee___red_spider_mite/C11P19H2.jpg",
+      "coffee___rust/C12P29H2.jpg"
+    ],
+    [
+      "coffee___red_spider_mite/C11P20E2.jpg",
+      "coffee___rust/C12P30E2.jpg"
+    ],
+    [
+      "coffee___red_spider_mite/C11P20H2.jpg",
+      "coffee___rust/C12P30H2.jpg"
+    ],
+    [
+      "coffee___red_spider_mite/C11P24E2.jpg",
+      "coffee___rust/C10P38E2.jpg"
+    ],
+    [
+      "coffee___red_spider_mite/C2P38E2.jpg",
+      "coffee___rust/C3P29E2.jpg"
+    ]
+  ],
+  "same_label_duplicate_copies_removed": 55,
+  "images": 1481,
+  "classes": {
+    "coffee___healthy": 758,
+    "coffee___red_spider_mite": 155,
+    "coffee___rust": 568
+  },
+  "groups": 352,
+  "grouping": "Prefijo CxPy provisional: confirmar significado en fuente original",
+  "splits": {
+    "train": {
+      "coffee___healthy": 448,
+      "coffee___red_spider_mite": 93,
+      "coffee___rust": 339
+    },
+    "val": {
+      "coffee___healthy": 156,
+      "coffee___red_spider_mite": 31,
+      "coffee___rust": 114
+    },
+    "test": {
+      "coffee___healthy": 154,
+      "coffee___red_spider_mite": 31,
+      "coffee___rust": 115
+    }
+  }
+}

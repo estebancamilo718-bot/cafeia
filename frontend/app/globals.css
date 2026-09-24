@@ -1,0 +1,71 @@
+@import "tailwindcss";
+
+:root {
+  --cream: #f6f0df;
+  --paper: #fffdf6;
+  --forest: #163f31;
+  --forest-deep: #0d2c22;
+  --sage: #dbe5d4;
+  --terracotta: #b8603f;
+  --gold: #d0a24c;
+  --ink: #173128;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html {
+  min-width: 320px;
+  background: var(--cream);
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  color: var(--ink);
+  background: var(--cream);
+  font-family: Arial, Helvetica, sans-serif;
+}
+
+button,
+input {
+  font: inherit;
+}
+
+button:focus-visible,
+input:focus-visible {
+  outline: 3px solid rgb(208 162 76 / 70%);
+  outline-offset: 3px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    scroll-behavior: auto !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
+.leaf-mark {
+  position: relative;
+  display: inline-block;
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 80% 16% 74% 20%;
+  background: #fbf6e9;
+  transform: rotate(-38deg);
+}
+
+.leaf-mark::after {
+  position: absolute;
+  top: 0.45rem;
+  left: 1.22rem;
+  width: 2px;
+  height: 1.8rem;
+  content: "";
+  background: var(--forest);
+  transform: rotate(38deg);
+  transform-origin: center;
+}
