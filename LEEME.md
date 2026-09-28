@@ -1,70 +1,190 @@
-# Proyecto final: agente de clasificación de hojas de café
+# CaféIA: instalación, reproducción y ejecución
 
-Proyecto para Visual Studio Code. Estado: preparación de 1481 imágenes verificada; la selección por validación y la evaluación final sobre las 300 imágenes reservadas ya están cerradas. CaféIA carga por variable de entorno el MobileNetV3 Small ajustado de la época 6, sin modificar su checkpoint original. Su F1 macro de validación fue 0.647844 y en TEST obtuvo accuracy 71.67 % y F1 macro 0.6235. Son resultados de ese conjunto fijado, no precisión clínica o agronómica ni garantías para fotografías nuevas. El MobileNet anterior y los experimentos CNN y ResNet18 siguen conservados.
+Este documento describe el estado vigente de CaféIA. La aplicación local funciona con FastAPI y Next.js; la selección de modelos y la evaluación final de la versión 1 ya se cerraron. No se ha realizado un despliegue público.
 
-## 1. Abrir y preparar (Windows)
+## 1. Estado del proyecto
 
-1. Extrae esta carpeta y ábrela completa en Visual Studio Code mediante Archivo > Abrir carpeta.
-2. Instala Python 3.11 de 64 bits si no lo tienes y la extensión Python de VS Code.
-3. Abre Terminal > Nueva terminal, dentro de esta carpeta.
-4. Ejecuta los comandos uno por uno en PowerShell. No es necesario activar el entorno ni cambiar la política de ejecución:
+- Dataset limpio local: 1.481 imágenes, después de excluir 24 archivos contradictorios y 55 copias redundantes.
+- Particiones conservadas en `data/processed/manifest.csv`, semilla 42 y grupos relacionados por duplicados unidos antes de dividir.
+- Modelo activo: MobileNetV3 Small ajustado, candidato de época 6.
+- F1 macro de validación usado para seleccionarlo: `0.6478439521`.
+- Evaluación final cerrada: 300 imágenes de TEST, accuracy `0.716667` y F1 macro `0.623486`.
+- Checkpoint desplegable: `models/mobilenet_finetuned_epoch6.pt`.
+- SHA-256: `4ab4e52fc3d417fe5fb126ff1e5b346f080c55ffa80232cffd5d6e6622e46c94`.
+- Modelo anterior, CNN, ResNet18 y experimentos: conservados localmente, pero excluidos de Git.
+
+El experimento v2 de redimensionamiento con proporción y relleno fue rechazado: obtuvo F1 macro de VAL `0.591710`, frente a `0.647844` del control. No cambió el modelo activo ni el preprocesamiento de la web.
+
+## 2. Arquitectura vigente
+
+```text
+frontend/                    Interfaz Next.js, TypeScript y Tailwind
+  app/page.tsx               Analizador, guía y resultados del modelo
+  lib/                       Validación y coordinación de solicitudes
+  public/guide/              Tres ejemplos atribuidos de TRAIN
+
+backend/main.py              FastAPI: /health y /predict
+  └─ src/common.py           Modelo, orden de clases y transformaciones
+       └─ models/mobilenet_finetuned_epoch6.pt
+
+src/                         Preparación, entrenamiento, validación y evaluación
+reports/                     Protocolos, métricas y auditorías
+```
+
+La ruta de inferencia es: archivo JPG/PNG → validación de formato y contenido → orientación EXIF y RGB → `Resize((224, 224))` → tensor → normalización ImageNet → MobileNet → softmax sobre tres salidas → respuesta API → presentación web.
+
+El backend carga el checkpoint una vez en el arranque, exige su hash, verifica el orden `sana → ácaro rojo → roya` y no guarda la fotografía recibida.
+
+## 3. Versiones reproducibles
+
+Entorno local verificado:
+
+- Python `3.11.9`.
+- Node.js local `25.9.0` y npm `11.12.1`.
+- La CI y el objetivo de despliegue usan Node `22`, una versión LTS compatible con el proyecto; su primera ejecución remota ocurrirá después de hacer push.
+
+Las dependencias directas verificadas están fijadas con `==`:
+
+- `requirements-api.txt`: backend e inferencia.
+- `requirements-test.txt`: pytest y cliente HTTP de pruebas.
+- `requirements-data.txt`: preparación del dataset.
+- `requirements.txt`: entorno académico completo y Streamlit heredado.
+- `frontend/package-lock.json`: árbol exacto del frontend, instalado con `npm ci`.
+
+No se generó un `pip freeze` global porque incluiría paquetes transitivos y específicos del entorno Windows que no corresponden al despliegue Linux. La CI instala los conjuntos mínimos declarados en Ubuntu.
+
+## 4. Instalación local en Windows
+
+Desde la raíz del repositorio, en PowerShell:
 
 ```powershell
 py -3.11 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install --upgrade pip
-.\.venv\Scripts\python.exe -m pip install -r requirements.txt
-.\.venv\Scripts\python.exe -m src.prepare --zip "C:\ruta\archive.zip"
+& .\.venv\Scripts\python.exe -m pip install --upgrade pip
+& .\.venv\Scripts\python.exe -m pip install -r requirements-api.txt
+
+Set-Location frontend
+npm.cmd ci
+Copy-Item .env.local.example .env.local
+Set-Location ..
 ```
 
-Si el ZIP está en otra carpeta, cambia solamente esa ruta. El ZIP del dataset no está incluido en esta plantilla para evitar duplicar aproximadamente 407 MB de imágenes. Usa el archivo que ya descargaste. La preparación verifica las imágenes, elimina duplicados exactos y genera el manifiesto y el informe de distribución.
+No es necesario activar el entorno; los comandos usan su intérprete directamente. `.env.local` solo contiene la URL local del backend y está ignorado por Git.
 
-En VS Code selecciona Python: Select Interpreter y elige `.venv` si no se selecciona automáticamente. Las versiones de requirements son intervalos compatibles de partida, no un entorno bloqueado y probado de entrenamiento. Después de una instalación funcional guarda `python -m pip freeze > requirements-lock.txt` usando el Python del entorno.
+## 5. Ejecutar CaféIA localmente
 
-## 2. Ejecutar CaféIA localmente (Windows)
+Abre dos terminales PowerShell en la raíz.
 
-La API reutiliza `load_checkpoint()` y `transform(training=False)` de `src/common.py`, mantiene el modelo en memoria desde el arranque y no conserva ni crea copias de las fotografías recibidas. Abre dos terminales de PowerShell en la raíz del proyecto.
-
-Primera terminal, backend:
+### Backend
 
 ```powershell
-.\.venv\Scripts\python.exe -m pip install -r requirements-api.txt
 $env:MODEL_PATH = "models/mobilenet_finetuned_epoch6.pt"
 $env:MODEL_SHA256 = "4ab4e52fc3d417fe5fb126ff1e5b346f080c55ffa80232cffd5d6e6622e46c94"
 $env:MODEL_ID = "mobilenet-v3-small-finetuned-epoch6"
 $env:CORS_ALLOWED_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
-.\.venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
+& .\.venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
 
-Comprueba la API en `http://127.0.0.1:8000/health`. La documentación interactiva de FastAPI queda en `http://127.0.0.1:8000/docs`.
+Comprobaciones:
 
-Segunda terminal, frontend:
+- Salud: `http://127.0.0.1:8000/health`.
+- OpenAPI: `http://127.0.0.1:8000/docs`.
+
+### Frontend
 
 ```powershell
 Set-Location frontend
-Copy-Item .env.local.example .env.local
-npm.cmd install
 npm.cmd run dev
 ```
 
-Abre `http://localhost:3000`. Se usa `npm.cmd` porque PowerShell puede bloquear el script `npm.ps1` aunque Node.js esté instalado. Para comprobar la compilación de producción:
+Abre `http://localhost:3000`.
+
+`MODEL_PATH` elige el checkpoint sin copiarlo sobre otro modelo. `MODEL_SHA256` impide iniciar con pesos inesperados. `CORS_ALLOWED_ORIGINS` es una lista de orígenes exactos, separados por comas y sin `/` final; no se admite `*`.
+
+## 6. Pruebas y compilación
+
+Instala una vez las dependencias de prueba:
+
+```powershell
+& .\.venv\Scripts\python.exe -m pip install -r requirements-test.txt
+```
+
+Pruebas del backend:
+
+```powershell
+& .\.venv\Scripts\python.exe -m pytest -q tests/backend
+```
+
+- `test_api_contract.py` sustituye el predictor por un doble determinista. Comprueba contrato, JPG/PNG, contenido real, archivo vacío, exceso de 10 MB, discrepancia de formato y error interno. No prueba el modelo.
+- `test_checkpoint_inference.py` verifica el hash, carga el checkpoint real y ejecuta una inferencia sobre una imagen sintética creada en memoria. Prueba integración técnica, no desempeño ni exactitud.
+
+Frontend:
 
 ```powershell
 Set-Location frontend
+npm.cmd run test:request-flow
 npm.cmd run build
 ```
 
-`MODEL_PATH` selecciona el checkpoint sin copiarlo sobre `models/mobilenet.pt`. `MODEL_SHA256` hace que el backend rechace el arranque si el archivo no coincide con el candidato fijado en `reports/FINAL_PROTOCOL.md`; `MODEL_ID` aparece en `/health`. `NEXT_PUBLIC_API_URL` define la URL del backend para el navegador. `CORS_ALLOWED_ORIGINS` es una lista separada por comas de orígenes exactos, sin rutas ni `/` final; no se admite `*`.
+La prueba cubre doble envío, cancelación, sustitución durante una petición, validación previa y error de conexión. La compilación ejecuta TypeScript y genera la salida optimizada.
 
-### Preparación para Vercel y Render, todavía sin publicar
+El flujo manual de navegador pendiente de repetición está en `reports/MANUAL_BROWSER_WALKTHROUGH.md`.
 
-- Render puede leer `render.yaml` desde la raíz. Este instala `requirements-api.txt`, inicia `backend.main:app`, usa `/health` y fija `MODEL_PATH`, `MODEL_SHA256` y `MODEL_ID`. Solicita el valor explícito de `CORS_ALLOWED_ORIGINS`.
-- El archivo desplegable es `models/mobilenet_finetuned_epoch6.pt`. Su SHA256 debe ser `4ab4e52fc3d417fe5fb126ff1e5b346f080c55ffa80232cffd5d6e6622e46c94`. Es el único `.pt` permitido expresamente por `.gitignore`; `experiments/`, `provenance/`, `.venv`, el dataset, `node_modules` y los artefactos de compilación quedan fuera del despliegue.
-- En Vercel, selecciona `frontend` como **Root Directory** y configura `NEXT_PUBLIC_API_URL` con la URL HTTPS que Render asigne al backend, sin `/` final.
-- Cuando Vercel asigne el dominio, configura en Render `CORS_ALLOWED_ORIGINS=https://dominio-real.vercel.app`. Agrega otros dominios solamente como elementos explícitos separados por comas.
-- Antes de publicar, confirma en el repositorio que el checkpoint desplegable aparece incluido y que los directorios excluidos no están versionados. Después del primer despliegue, comprueba que `/health` devuelve `model_id: mobilenet-v3-small-finetuned-epoch6` y el SHA256 esperado antes de configurar el frontend.
-- No se ha publicado ningún servicio. Las URLs reales se configuran cuando se autorice el despliegue.
+## 7. Integración continua
 
-Los comandos que ejecutará Render están declarados exactamente así:
+`.github/workflows/ci.yml` define dos trabajos independientes en Ubuntu:
+
+1. instala `requirements-api.txt` y `requirements-test.txt`, ejecuta pruebas con doble y la inferencia real del checkpoint;
+2. ejecuta `npm ci`, las pruebas del flujo y `npm run build`.
+
+La CI no descarga RoCoLe, no accede a `data/raw`, no consulta TEST y no entrena. La primera ejecución en GitHub ocurrirá después del próximo push; el commit local por sí solo no la activa.
+
+## 8. Preparación y experimentación académica
+
+El dataset no se distribuye en Git. Para reconstruirlo desde el ZIP autorizado:
+
+```powershell
+& .\.venv\Scripts\python.exe -m pip install -r requirements.txt
+& .\.venv\Scripts\python.exe -m src.prepare --zip "C:\ruta\archive.zip"
+```
+
+La preparación valida imágenes, elimina duplicados exactos, excluye conflictos documentados y genera el manifiesto. No debe ejecutarse sobre el estado actual salvo que se pretenda reproducirlo desde cero, porque el manifiesto vigente es una evidencia fijada.
+
+Los comandos históricos de entrenamiento son:
+
+```powershell
+& .\.venv\Scripts\python.exe -m src.train --model cnn --epochs 10
+& .\.venv\Scripts\python.exe -m src.train --model mobilenet --epochs 10
+& .\.venv\Scripts\python.exe -m src.train --model resnet18 --epochs 10
+```
+
+No los ejecutes para reemplazar el modelo activo. La selección final ya se cerró y TEST no puede reutilizarse para ajustar decisiones. El evaluador acepta rutas explícitas:
+
+```powershell
+& .\.venv\Scripts\python.exe -m src.evaluate --checkpoint "ruta\checkpoint.pt" --output-dir "carpeta\nueva" --model-label "etiqueta" --expected-samples 300 --uncertainty-threshold 0.70
+```
+
+Este comando se conserva por reproducibilidad, no como invitación a reevaluar y seleccionar con TEST.
+
+`app.py` es la interfaz Streamlit heredada del primer prototipo. No participa en la aplicación Next.js/FastAPI ni en Render/Vercel; se conserva como evidencia del desarrollo inicial.
+
+## 9. Resultados de la versión 1
+
+| Modelo fijado | F1 macro VAL | F1 macro TEST | Accuracy TEST |
+|---|---:|---:|---:|
+| MobileNet ajustado, época 6 — activo | 0,647844 | 0,623486 | 0,716667 |
+| MobileNet congelado, época 9 | 0,632707 | 0,629352 | 0,720000 |
+| ResNet18 congelado, época 8 | 0,594740 | 0,608927 | 0,740000 |
+| CNN pequeña, época 7 | 0,438571 | 0,427482 | 0,473333 |
+
+TEST no reabrió la selección: el candidato activo había sido fijado previamente mediante validación. Ácaro rojo continúa siendo su clase más débil: F1 de TEST `0.354430`.
+
+Con el umbral provisional `0.70`, 158/300 predicciones quedaron aceptadas, 140 fueron correctas y 18 incorrectas. La accuracy condicional fue `88.61 %` con cobertura `52.67 %`. No es una garantía para datos nuevos ni demuestra calibración.
+
+## 10. Despliegue público: preparado, no ejecutado
+
+### Backend en Render
+
+`render.yaml` declara:
 
 ```text
 Build: pip install -r requirements-api.txt
@@ -72,105 +192,59 @@ Start: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
 Health: /health
 ```
 
-En Vercel, con `frontend` como **Root Directory**, el comando comprobado es `npm run build`. La variable de producción es `NEXT_PUBLIC_API_URL=https://nombre-real-del-backend.onrender.com`, sin `/` final. En Render, `CORS_ALLOWED_ORIGINS` debe contener el origen exacto asignado por Vercel, por ejemplo `https://nombre-real.vercel.app`; no uses comodines.
+La ruta `models/mobilenet_finetuned_epoch6.pt` coincide con el archivo incluido en Git. Render requiere definir `CORS_ALLOWED_ORIGINS` con el dominio HTTPS real del frontend.
 
-La medición local de un solo proceso Uvicorn en CPU fue 309.86 MiB de working set con el modelo cargado y un pico de 351.26 MiB durante las predicciones. El plan gratuito de Render declara 512 MB, por lo que hay margen limitado y el RSS debe comprobarse en sus métricas después de un despliegue autorizado. La memoria privada de Windows medida (776.87 MiB al cargar) no es directamente equivalente al RSS de Linux. No se contrató ningún plan. Detalles en `reports/WEB_MODEL_INTEGRATION.md`.
+### Frontend en Vercel
 
-El repositorio local ya está inicializado en la rama `main`, todavía sin remoto. Antes del primer envío, verifica la selección de archivos:
+- Root Directory: `frontend`.
+- Comando: `npm run build`.
+- Variable: `NEXT_PUBLIC_API_URL=https://dominio-real-del-backend`, sin `/` final.
 
-```powershell
-git status --short --ignored
-git check-ignore -v models/mobilenet.pt
-git check-ignore -v experiments/mobilenet_finetune_20260922-103426/best_checkpoint.pt
-git check-ignore -v data/raw/coffee___healthy/C10P11H1.jpg
-git check-ignore -v .venv/pyvenv.cfg
-git check-ignore -v frontend/node_modules/next/package.json
-git check-ignore -v models/mobilenet_finetuned_epoch6.pt
-```
+No hay todavía URL pública. Las direcciones `.example` son marcadores y no servicios activos. Tras publicar de forma autorizada se deben verificar `/health`, hash, CORS, memoria, archivo inválido, predicción y recuperación ante desconexión.
 
-Los cinco primeros deben aparecer ignorados; el último no debe producir salida porque es el único checkpoint permitido para despliegue. Antes de un `git add`, revisa también que no se incluyan imágenes del dataset, `provenance/`, `.venv/`, `node_modules/` ni `experiments/`.
+La medición local histórica fue aproximadamente 310 MiB de working set con el modelo cargado y 351 MiB durante predicción. Es orientativa; el consumo debe medirse de nuevo en Linux y en el servicio elegido.
 
-Referencias oficiales: [Render Blueprint](https://render.com/docs/blueprint-spec), [planes de cómputo de Render](https://render.com/docs/compute-plans), [variables de entorno de Vercel](https://vercel.com/docs/environment-variables) y [directorio raíz de monorepos en Vercel](https://vercel.com/docs/monorepos).
+## 11. Archivos versionados y material local
 
-## 3. Entrenar el primer modelo
+Git debe contener:
 
-Primero una ejecución de comprobación (una época no equivale a un resultado final):
+- backend, frontend y scripts reproducibles;
+- manifiesto, reportes académicos y atribuciones;
+- tres imágenes atribuidas de la guía;
+- `models/mobilenet_finetuned_epoch6.pt` y ningún otro checkpoint;
+- configuración de Render, Vercel y CI;
+- plantillas `.env` sin secretos.
 
-```powershell
-.\.venv\Scripts\python.exe -m src.train --model mobilenet --epochs 1
-```
+Git no debe contener:
 
-Luego una primera corrida de trabajo:
+- `.venv`, `node_modules`, `.next` o cachés;
+- `data/raw` ni paquetes ZIP;
+- descargas completas de procedencia;
+- `experiments` ni checkpoints de respaldo;
+- `.env` locales, tokens o credenciales.
 
-```powershell
-.\.venv\Scripts\python.exe -m src.train --model mobilenet --epochs 10
-.\.venv\Scripts\python.exe -m streamlit run app.py
-```
+Los archivos ignorados siguen siendo importantes localmente. No borres `data/raw`, `provenance`, `experiments` ni modelos de referencia mientras sean evidencia del trabajo académico.
 
-La primera ejecución descarga los pesos preentrenados y necesita internet. Sin CUDA disponible se utiliza CPU automáticamente; no se presupone aceleración en una GPU AMD. Si tarda demasiado, se puede usar Colab con GPU: subir y extraer esta carpeta, subir archive.zip, cambiar al directorio del proyecto, instalar requirements y ejecutar `python -m src.prepare --zip /content/archive.zip` y `python -m src.train --model mobilenet --epochs 10`. Descargar después `models/` y `reports/` y copiarlos en la carpeta local.
+## 12. Alcance y limitaciones
 
-## 4. Comparación de soluciones
+- Solo existen tres salidas; no cubre otras enfermedades, deficiencias o daños.
+- No hay segmentación, localización de lesiones ni severidad.
+- Las puntuaciones softmax no son probabilidades calibradas.
+- El umbral `0.70` controla el mensaje de incertidumbre; no detecta hojas de otras especies ni objetos.
+- La clase ácaro rojo tiene menor soporte y peor desempeño.
+- Falta evaluación externa con plantas, sesiones y sitios independientes.
+- La guía resume señales generales y no asigna una especie concreta de ácaro al dataset.
+- CaféIA no reemplaza una evaluación agronómica experta.
 
-Los tres modelos ya tienen una corrida archivada de 10 épocas con semilla 42 y las mismas particiones. Los comandos reproducibles son:
+## 13. Evidencias y atribución
 
-```powershell
-.\.venv\Scripts\python.exe -m src.train --model cnn --epochs 10
-.\.venv\Scripts\python.exe -m src.train --model resnet18 --epochs 10
-```
+- `reports/FINAL_PROTOCOL.md`: selección congelada antes de TEST.
+- `reports/FINAL_TEST_RESULTS.md`: evaluación final.
+- `reports/VALIDATION_MODEL_COMPARISON.md`: comparación por validación.
+- `reports/DATASET_PROVENANCE_AUDIT.md`: procedencia y unidades originales.
+- `reports/ORIGINAL_ANNOTATION_COMPARISON.md`: anotaciones y conflictos.
+- `reports/RELIABILITY_AUDIT.md`: flujo web y errores de concurrencia.
+- `reports/V2_PREPROCESSING_RESULTS.md`: candidato v2 descartado.
+- `ATTRIBUTIONS.md`: licencias y fuentes de terceros.
 
-- CNN pequeña: modelo desde cero para tener una referencia sencilla.
-- MobileNetV3 Small: extractor preentrenado congelado y clasificación adaptada a tres clases.
-- ResNet18: segundo extractor preentrenado congelado para comparar.
-
-La comparación por validación está en `reports/VALIDATION_MODEL_COMPARISON.md`. La evaluación final ya se ejecutó una sola vez con el protocolo congelado y está en `reports/FINAL_TEST_RESULTS.md`; sus evidencias están en `experiments/final_test_20260922/`. No se deben usar esos resultados para cambiar el checkpoint, el umbral, el preprocesamiento o los hiperparámetros.
-
-El evaluador actual exige una ruta de checkpoint y una carpeta de salida explícitas; no acepta los antiguos argumentos `--model`. Su forma reproducible es:
-
-```powershell
-.\.venv\Scripts\python.exe -m src.evaluate --checkpoint "ruta\checkpoint.pt" --output-dir "carpeta\nueva" --model-label "etiqueta" --expected-samples 300 --uncertainty-threshold 0.70
-```
-
-No vuelvas a ejecutarlo para seleccionar modelos. Los JSON existentes contienen precision, recall y F1 por clase, accuracy, matriz de confusión, predicciones por imagen y análisis del umbral fijado.
-
-## 5. Organización
-
-| Archivo o carpeta | Uso |
-|---|---|
-| AGENTS.md | Contexto e instrucciones para Codex |
-| src/prepare.py | Lectura del ZIP, auditoría, división y manifiesto |
-| src/common.py | Lectura de imágenes, transformaciones y arquitecturas |
-| src/train.py | Entrenamiento y selección por F1 macro de validación |
-| src/evaluate.py | Evaluación final sobre prueba |
-| app.py | Interfaz local para fotografías |
-| backend/main.py | API FastAPI de CaféIA |
-| frontend/ | Interfaz Next.js, TypeScript y Tailwind |
-| render.yaml | Configuración preparada para Render |
-| data/raw/ | Imágenes extraídas localmente |
-| data/processed/manifest.csv | Identificadores y partición reproducible |
-| models/ | Modelos entrenados |
-| reports/ | Auditoría y resultados reales |
-| docs/PLAN.md | Ruta académica y tareas pendientes |
-| docs/REVISION_BIBLIOGRAFICA.md | Guía para investigar y documentar fuentes |
-
-## 6. Empezar con Codex
-
-Pega este mensaje en el panel de Codex con esta carpeta abierta:
-
-> Lee AGENTS.md, LEEME.md y reports/VERIFICACION.md. Ayúdame con el siguiente paso de CaféIA sin reentrenar ni cambiar la partición salvo que lo solicite. Conserva las tres clases, registra solo resultados reales y explica brevemente cada paso.
-
-## Alcance y límites
-
-Entrada: imagen RGB de una hoja de café. Percepción: preprocesamiento y red convolucional profunda (CNN, una clase de DNN). Acción: emitir categoría y puntuación, o solicitar revisión cuando la puntuación sea baja. El aprendizaje se realiza fuera de línea; subir una foto no reentrena automáticamente la red.
-
-Tres etiquetas disponibles, sin segmentación, localización de lesiones ni estimación de severidad. El ácaro rojo es una plaga; por precisión hablamos de condiciones o afectaciones, no de tres enfermedades. No se garantiza reconocer plantas diferentes ni enfermedades ausentes del conjunto. El umbral 0,70 de la interfaz es provisional y no está calibrado.
-
-La agrupación por prefijo CxPy de los nombres es una decisión conservadora provisional: se observan nombres como C10P10E1 y C10P10H1. Debe confirmarse con la documentación original si corresponde a planta, hoja u otra unidad. No afirmar independencia biológica definitiva sin esa verificación. Las proporciones 60/20/20 son aproximadas por grupos; no se reparte cada foto al azar.
-
-Fuentes de partida:
-- Dataset aportado: https://www.kaggle.com/datasets/nirmalsankalana/rocole-a-robusta-coffee-leaf-images-dataset
-- API MobileNet: https://docs.pytorch.org/vision/stable/models/generated/torchvision.models.mobilenet_v3_small.html
-- Instrucciones académicas: PDF e imagen entregados por el usuario. El usuario confirmó que las instrucciones del PDF 2025B también aplican en 2026; la diferencia sobre duración de exposiciones todavía debe aclararse con el docente.
-
-## Hallazgo real de auditoría
-
-24 archivos con etiquetas contradictorias excluidos provisionalmente y 55 copias duplicadas eliminadas: quedan 1481 imágenes (758 sanas, 568 roya, 155 ácaro rojo). Los grupos CxPy vinculados por duplicados se unen antes de dividir. Consulta reports/dataset_audit.json. No se corrigen etiquetas por suposición.
+El código del proyecto todavía no tiene una licencia propia. Elegirla antes de abrir públicamente el repositorio sigue siendo una decisión de la persona autora.

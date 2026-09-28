@@ -17,6 +17,8 @@ Proyecto universitario Crop Disease Image Classification, DNNs, usando el ZIP Ro
 ## Trabajo pendiente
 Preparación ejecutada y verificada. `models/mobilenet.pt` conserva el MobileNet congelado de la época 9 (F1 macro de validación 0.6327072392) como respaldo local. La web carga ahora, mediante `MODEL_PATH`, la copia desplegable `models/mobilenet_finetuned_epoch6.pt` del candidato ajustado de época 6 (F1 macro de validación 0.6478439521; SHA256 fijado en `reports/FINAL_PROTOCOL.md`). El checkpoint original y todos los experimentos permanecen en `experiments/`. La evaluación final sobre las 300 imágenes reservadas ya se cerró y está en `reports/FINAL_TEST_RESULTS.md`; no usar TEST para volver a seleccionar o ajustar. La aplicación web CaféIA usa FastAPI y Next.js; consultar el estado comprobado en `reports/VERIFICACION.md`. Facilitar CPU o Colab, sin asumir CUDA en AMD. Mantener sencillo el proyecto; no agregar APIs pagas ni despliegues innecesarios.
 
+El experimento pareado v2 de preprocesamiento ya concluyó: el control obtuvo F1 macro de VAL 0.647844 y el candidato con proporción conservada y relleno 0.591710. También retrocedió ácaro rojo. Conservar el modelo web activo; no encadenar otra variante sin una decisión nueva. Evidencia en `reports/V2_PREPROCESSING_RESULTS.md` y `experiments/mobilenet_v2_preprocessing_20260927-114627/`.
+
 ## Académico
 El usuario confirmó que las instrucciones académicas del PDF 2025B también aplican en 2026. El PDF pide revisión, propuesta, informe científico y GitHub; criterios dicen más de dos soluciones aunque fases mencionan una o dos. Imagen y PDF difieren en duración de exposiciones; confirmar con el docente cuál duración de exposición prevalece. Preparar textos en Markdown hasta recibir plantilla IEEE oficial.
 

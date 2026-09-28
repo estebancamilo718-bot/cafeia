@@ -2,10 +2,16 @@
   "name": "cafeia-frontend",
   "version": "0.1.0",
   "private": true,
+  "type": "module",
+  "packageManager": "npm@11.12.1",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "start": "next start"
+    "start": "next start",
+    "test:request-flow": "node --test --experimental-strip-types lib/latest-request.test.ts"
   },
   "dependencies": {
     "next": "16.3.5",

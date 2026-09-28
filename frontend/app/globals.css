@@ -18,6 +18,7 @@
 html {
   min-width: 320px;
   background: var(--cream);
+  scroll-behavior: smooth;
 }
 
 body {
@@ -29,14 +30,56 @@ body {
 }
 
 button,
-input {
+input,
+summary {
   font: inherit;
 }
 
 button:focus-visible,
-input:focus-visible {
-  outline: 3px solid rgb(208 162 76 / 70%);
+input:focus-visible,
+a:focus-visible,
+summary:focus-visible {
+  outline: 3px solid rgb(157 78 52 / 90%);
   outline-offset: 3px;
+}
+
+.nav-link {
+  min-height: 2.5rem;
+  display: inline-flex;
+  flex: none;
+  align-items: center;
+  border-radius: 0.6rem;
+  padding: 0.45rem 0.7rem;
+  color: var(--forest);
+  font-size: 0.78rem;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.nav-link:hover {
+  background: var(--sage);
+}
+
+.guide-details summary::-webkit-details-marker {
+  display: none;
+}
+
+.guide-details summary::after {
+  margin-left: 0.65rem;
+  content: "+";
+  font-size: 1.1rem;
+  line-height: 1;
+}
+
+.guide-details[open] summary::after {
+  content: "−";
+}
+
+@media (min-width: 640px) {
+  .nav-link {
+    padding-inline: 0.8rem;
+    font-size: 0.84rem;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
