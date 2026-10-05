@@ -129,6 +129,20 @@ La prueba cubre doble envío, cancelación, sustitución durante una petición, 
 
 El flujo manual de navegador pendiente de repetición está en `reports/MANUAL_BROWSER_WALKTHROUGH.md`.
 
+### Comprobación E2E local con fotografías reales de VAL
+
+Esta comprobación no pertenece a la CI porque necesita el dataset local y la comparación de anotaciones originales, que no se publican. Se ejecuta en dos fases para impedir que las predicciones influyan en la selección:
+
+```powershell
+# Fase 1: fija 5 archivos por clase y 15 grupos distintos, sin cargar el modelo
+& .\.venv\Scripts\python.exe -m src.verify_val_e2e select
+
+# Fase 2: con el backend activo en el puerto indicado
+& .\.venv\Scripts\python.exe -m src.verify_val_e2e run --base-url http://127.0.0.1:8000
+```
+
+`reports/val_e2e/selection.csv` registra archivo, grupo/planta, etiqueta auditada y criterio determinista. `results.csv` y `results.json` conservan puntuaciones y concordancia. El informe legible está en `reports/VAL_E2E_INTEGRATION.md`. Las imágenes continúan bajo `data/raw`, no se copian al frontend y no se versionan.
+
 ## 7. Integración continua
 
 `.github/workflows/ci.yml` define dos trabajos independientes en Ubuntu:

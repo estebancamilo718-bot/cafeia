@@ -153,7 +153,7 @@ try {
     await setViewport(client, width);
     responsive[width] = await evaluate(
       client,
-      `(() => { const sections = [...document.querySelectorAll("main > div section")]; const grid = sections[0]?.parentElement; return grid ? getComputedStyle(grid).gridTemplateColumns : null; })()`,
+      `(() => { const grid = document.querySelector("[data-analysis-grid]"); return grid ? getComputedStyle(grid).gridTemplateColumns : null; })()`,
     );
     await screenshot(client, `initial_${width}.png`);
   }

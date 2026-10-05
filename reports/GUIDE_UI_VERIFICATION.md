@@ -1,5 +1,9 @@
 # Verificación de la guía visual de CaféIA
 
+> **Actualización de interfaz:** la navegación actual conserva “Analizar” y “Guía visual”. La antigua tercera sección “Sobre el modelo” se retiró de la página; sus cifras permanecen en `README.md`, `reports/FINAL_TEST_RESULTS.md` y la evidencia histórica siguiente.
+
+> **Comprobación 2026-10-04:** las 5 pruebas del flujo frontend, TypeScript y `next build` finalizaron correctamente; el HTML local respondió 200, mostró “Agente IA para hojas de café” y no incluyó “Evaluación del prototipo” ni “Sobre el modelo”. Edge y el navegador integrado no estuvieron disponibles para una nueva inspección visual, por lo que las capturas y la tabulación manual siguen pendientes.
+
 **Fecha:** 2026-09-26
 **URL local:** `http://localhost:3000`
 

@@ -4,6 +4,8 @@ CaféIA es un prototipo académico web que clasifica fotografías de hojas de ca
 
 La aplicación conserva el analizador como función principal. La guía visual es educativa y utiliza tres ejemplos de TRAIN con anotación original verificada; no convierte la salida del modelo en un diagnóstico.
 
+La interfaz actual presenta dos destinos: **Analizar** y **Guía visual**. Las métricas académicas permanecen documentadas en este README y en `reports/`, sin ocupar una tercera sección en la página pública.
+
 ## Estado reproducible
 
 - Checkpoint activo: `models/mobilenet_finetuned_epoch6.pt`.
@@ -79,6 +81,8 @@ npm.cmd run build
 ```
 
 `tests/backend/test_api_contract.py` usa un predictor falso y no demuestra inferencia real. `tests/backend/test_checkpoint_inference.py` carga el checkpoint desplegable y ejecuta una inferencia real sobre una imagen sintética creada en memoria; comprueba integración, no exactitud. La CI reproduce estas comprobaciones sin dataset privado ni entrenamiento.
+
+La comprobación E2E local con fotografías reales se mantiene separada porque requiere `data/raw` y la evidencia original, ambos excluidos de Git. `src/verify_val_e2e.py` fija primero 15 imágenes de VAL sin cargar el modelo y después compara inferencia directa con una API HTTP real. Sus resultados están en [reports/VAL_E2E_INTEGRATION.md](reports/VAL_E2E_INTEGRATION.md); no son una nueva evaluación global ni consultan TEST.
 
 ## Resultados fijados
 

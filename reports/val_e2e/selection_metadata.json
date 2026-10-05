@@ -1,0 +1,21 @@
+{
+  "scope": "VAL only; no TEST images, annotations or predictions",
+  "selection_before_prediction": true,
+  "model_loaded_during_selection": false,
+  "seed": 42,
+  "samples_per_class": 5,
+  "class_order": [
+    "coffee___healthy",
+    "coffee___red_spider_mite",
+    "coffee___rust"
+  ],
+  "distinct_groups_across_entire_sample": true,
+  "selection_algorithm": "rank groups and paths by SHA256(seed=42, class, identifier); choose the first file from five unused groups per class",
+  "manifest_path": "data/processed/manifest.csv",
+  "manifest_sha256": "1ea21d6b2b480b830065c5d4d1d90f531234cc2aa244d7bb98c5873363866dab",
+  "annotation_evidence_path": "provenance/rocole_mendeley_v2/evidence/train_val_annotation_comparison.csv",
+  "selection_path": "reports/val_e2e/selection.csv",
+  "selection_sha256": "242ffc4c78d1e28bab89f3550f65f11f385ce0d0d4511c38b18b59b6e0793f3f",
+  "selected_files": 15,
+  "selected_groups": 15
+}

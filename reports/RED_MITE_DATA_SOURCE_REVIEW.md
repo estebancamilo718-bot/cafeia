@@ -1,5 +1,7 @@
 # Revisión de fuentes públicas para ácaro rojo en hojas de café
 
+> **Actualización 2026-09-30 — auditoría de Xinzhai completada.** El ZIP oficial se descargó y verificó contra el tamaño y MD5 publicados. Contiene 1.020 imágenes y anotaciones YOLO de cinco clases, pero **no contiene ácaro rojo**. Por tanto, deja de ser una fuente prioritaria para esa clase y no debe incorporarse al clasificador. Hay además discrepancias de fecha, dispositivos, cantidad y categorías respecto del artículo. La auditoría completa y sus evidencias están en [`XINZHAI_DATASET_AUDIT.md`](XINZHAI_DATASET_AUDIT.md) y [`xinzhai_audit/`](xinzhai_audit/). Las secciones siguientes se conservan como registro de la búsqueda documental previa a la descarga.
+
 **Fecha de corte:** 2026-09-27
 **Alcance:** búsqueda documental posterior a `RELIABILITY_AUDIT.md` y `NEXT_EXPERIMENT_PROTOCOL.md`. No se repitieron las auditorías de RoCoLe, no se consultó TEST, no se descargaron imágenes, no se entrenó y no se cambió el modelo activo.
 

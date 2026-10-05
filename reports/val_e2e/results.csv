@@ -1,0 +1,16 @@
+selection_index,path,filename,group,true_label,true_label_display,original_classification,predicted_label,predicted_label_display,score_healthy,score_red_spider_mite,score_rust,classification_correct,is_uncertain,integration_agreement,max_score_absolute_difference
+1,data/raw/coffee___healthy/C4P26H1.jpg,C4P26H1.jpg,C4P26,coffee___healthy,Hoja sana,healthy,coffee___healthy,Hoja sana,0.634767472743988,0.2491665929555893,0.1160658523440361,True,True,True,0.0
+2,data/raw/coffee___healthy/C12P1H1.jpg,C12P1H1.jpg,C12P1,coffee___healthy,Hoja sana,healthy,coffee___healthy,Hoja sana,0.45887407660484314,0.2155933529138565,0.32553258538246155,True,True,True,0.0
+3,data/raw/coffee___healthy/C9P5E2.jpg,C9P5E2.jpg,C9P5,coffee___healthy,Hoja sana,healthy,coffee___healthy,Hoja sana,0.6490657925605774,0.023243306204676628,0.3276909291744232,True,True,True,0.0
+4,data/raw/coffee___healthy/C2P18E1.jpg,C2P18E1.jpg,C2P18,coffee___healthy,Hoja sana,healthy,coffee___healthy,Hoja sana,0.936996340751648,0.040645476430654526,0.02235819399356842,True,False,True,0.0
+5,data/raw/coffee___healthy/C8P6H1.jpg,C8P6H1.jpg,C8P6,coffee___healthy,Hoja sana,healthy,coffee___healthy,Hoja sana,0.48267507553100586,0.07853976637125015,0.4387851357460022,True,True,True,0.0
+6,data/raw/coffee___red_spider_mite/C11P37E2.jpg,C11P37E2.jpg,C11P37,coffee___red_spider_mite,Ácaro rojo,red_spider_mite,coffee___rust,Roya,0.026079870760440826,0.25666022300720215,0.71725994348526,False,False,True,0.0
+7,data/raw/coffee___red_spider_mite/C10P40E2.jpg,C10P40E2.jpg,C10P40,coffee___red_spider_mite,Ácaro rojo,red_spider_mite,coffee___red_spider_mite,Ácaro rojo,0.3041759431362152,0.3963543474674225,0.2994697391986847,True,True,True,0.0
+8,data/raw/coffee___red_spider_mite/C12P13E2.jpg,C12P13E2.jpg,C12P13,coffee___red_spider_mite,Ácaro rojo,red_spider_mite,coffee___red_spider_mite,Ácaro rojo,0.01590747945010662,0.6344242095947266,0.34966832399368286,True,True,True,0.0
+9,data/raw/coffee___red_spider_mite/C2P15E2.jpg,C2P15E2.jpg,C2P15,coffee___red_spider_mite,Ácaro rojo,red_spider_mite,coffee___red_spider_mite,Ácaro rojo,0.06408345699310303,0.7666981220245361,0.16921839118003845,True,False,True,0.0
+10,data/raw/coffee___red_spider_mite/C2P22E2.jpg,C2P22E2.jpg,C2P22,coffee___red_spider_mite,Ácaro rojo,red_spider_mite,coffee___red_spider_mite,Ácaro rojo,0.011052954941987991,0.8511590361595154,0.13778795301914215,True,False,True,0.0
+11,data/raw/coffee___rust/C8P3H1.jpg,C8P3H1.jpg,C8P3,coffee___rust,Roya,rust_level_1,coffee___rust,Roya,0.019804440438747406,0.09684555977582932,0.8833500146865845,True,False,True,0.0
+12,data/raw/coffee___rust/C8P12E1.jpg,C8P12E1.jpg,C8P12,coffee___rust,Roya,rust_level_1,coffee___healthy,Hoja sana,0.831809401512146,0.05939844995737076,0.10879220068454742,False,False,True,0.0
+13,data/raw/coffee___rust/C10P36E2.jpg,C10P36E2.jpg,C10P36,coffee___rust,Roya,rust_level_1,coffee___rust,Roya,0.005243420135229826,0.2361355870962143,0.7586209774017334,True,False,True,0.0
+14,data/raw/coffee___rust/C5P12E1.jpg,C5P12E1.jpg,C5P12,coffee___rust,Roya,rust_level_2,coffee___rust,Roya,0.06415790319442749,0.15957440435886383,0.7762677073478699,True,False,True,0.0
+15,data/raw/coffee___rust/C1P9E2.jpg,C1P9E2.jpg,C1P9,coffee___rust,Roya,rust_level_2,coffee___red_spider_mite,Ácaro rojo,0.08215946704149246,0.8157251477241516,0.10211540758609772,False,False,True,0.0

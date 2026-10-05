@@ -19,6 +19,8 @@ Preparación ejecutada y verificada. `models/mobilenet.pt` conserva el MobileNet
 
 El experimento pareado v2 de preprocesamiento ya concluyó: el control obtuvo F1 macro de VAL 0.647844 y el candidato con proporción conservada y relleno 0.591710. También retrocedió ácaro rojo. Conservar el modelo web activo; no encadenar otra variante sin una decisión nueva. Evidencia en `reports/V2_PREPROCESSING_RESULTS.md` y `experiments/mobilenet_v2_preprocessing_20260927-114627/`.
 
+El experimento exploratorio de profundidad del ajuste fino también concluyó con semillas 42, 43 y 44. Frente al control `features.10-12`, el candidato `features.7-12` mejoró el F1 macro medio de VAL de 0.656769 a 0.667911 (delta medio +0.011142), pero los recalls de ácaro y roya mostraron alta variación entre semillas. Conservarlo como candidato exploratorio; no reemplazar el modelo web ni volver a usar TEST para decidir. Evidencia en `reports/MOBILENET_DEPTH_EXPERIMENT_RESULTS.md` y `experiments/mobilenet_depth_20260930-155127/`. Xinzhai quedó descartado como fuente para ácaro rojo porque su ZIP auditado no contiene esa clase; no incorporar sus imágenes.
+
 ## Académico
 El usuario confirmó que las instrucciones académicas del PDF 2025B también aplican en 2026. El PDF pide revisión, propuesta, informe científico y GitHub; criterios dicen más de dos soluciones aunque fases mencionan una o dos. Imagen y PDF difieren en duración de exposiciones; confirmar con el docente cuál duración de exposición prevalece. Preparar textos en Markdown hasta recibir plantilla IEEE oficial.
 

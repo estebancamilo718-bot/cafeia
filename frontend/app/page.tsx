@@ -296,18 +296,20 @@ export default function Home() {
         Ir al análisis
       </a>
 
-      <header className="sticky top-0 z-40 border-b border-[#163f31]/12 bg-[#fffdf6]/95 backdrop-blur">
+      <header className="sticky top-0 z-40 border-b border-[#163f31]/12 bg-[#fffdf6]/92 shadow-[0_1px_18px_rgba(22,63,49,0.04)] backdrop-blur-md">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6 lg:px-8">
           <a href="#analisis" className="flex items-center gap-2.5 rounded-md focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#9d4e34]" aria-label="CaféIA, ir al analizador">
             <span className="grid h-9 w-9 place-items-center rounded-full bg-[#163f31]" aria-hidden="true">
               <span className="leaf-mark scale-[0.42]" />
             </span>
-            <span className="text-xl font-black tracking-[-0.04em] text-[#163f31]">CaféIA</span>
+            <span>
+              <span className="block text-xl leading-none font-black tracking-[-0.04em] text-[#163f31]">CaféIA</span>
+              <span className="mt-0.5 hidden text-[0.65rem] font-bold tracking-wide text-[#60756d] sm:block">Asistente para hojas de café</span>
+            </span>
           </a>
           <nav aria-label="Navegación principal" className="order-3 flex w-full items-center gap-1 overflow-x-auto pb-0.5 sm:order-2 sm:w-auto sm:pb-0">
             <a className="nav-link" href="#analisis">Analizar</a>
-            <a className="nav-link" href="#guia">Guía de hojas</a>
-            <a className="nav-link" href="#sobre-modelo">Sobre el modelo</a>
+            <a className="nav-link" href="#guia">Guía visual</a>
           </nav>
           <span className="order-2 rounded-full bg-[#dbe5d4] px-3 py-1.5 text-[0.65rem] font-bold tracking-wide text-[#163f31] uppercase sm:order-3 sm:text-xs">
             Prototipo académico
@@ -317,18 +319,25 @@ export default function Home() {
 
       <main className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-9 lg:px-8 lg:py-10">
         <section id="analisis" aria-labelledby="analysis-title" className="scroll-mt-28 sm:scroll-mt-20">
-          <div className="mb-6 max-w-3xl sm:mb-8">
-            <p className="text-xs font-extrabold tracking-[0.18em] text-[#9d4e34] uppercase">Análisis visual orientativo</p>
-            <h1 id="analysis-title" className="mt-2 text-3xl leading-tight font-black tracking-[-0.045em] text-[#163f31] sm:text-4xl">
-              Analiza una hoja de café
-            </h1>
-            <p className="mt-3 max-w-2xl text-sm leading-6 text-[#455f55] sm:text-base">
-              Sube una fotografía clara de una sola hoja. CaféIA la comparará con tres categorías: hoja sana, roya y daño por ácaro rojo.
-            </p>
+          <div className="analysis-intro mb-6 overflow-hidden rounded-3xl border border-[#163f31]/10 px-5 py-5 sm:mb-8 sm:px-7 sm:py-6">
+            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+              <div className="max-w-3xl">
+                <p className="text-xs font-extrabold tracking-[0.18em] text-[#9d4e34] uppercase">Agente IA para hojas de café</p>
+                <h1 id="analysis-title" className="mt-2 text-3xl leading-tight font-black tracking-[-0.045em] text-[#163f31] sm:text-4xl">
+                  Analiza una hoja de café
+                </h1>
+                <p className="mt-3 max-w-2xl text-sm leading-6 text-[#455f55] sm:text-base">
+                  Sube una fotografía clara de una sola hoja. CaféIA la compara de forma orientativa con hoja sana, roya y daño por ácaro rojo.
+                </p>
+              </div>
+              <p className="w-fit shrink-0 rounded-full border border-[#163f31]/12 bg-[#fffdf6]/80 px-3 py-2 text-xs font-extrabold text-[#52675f]">
+                3 categorías · Resultado orientativo
+              </p>
+            </div>
           </div>
 
-          <div className="grid items-start gap-5 md:grid-cols-2 lg:gap-7">
-            <section aria-labelledby="upload-title" className="rounded-3xl border border-[#163f31]/12 bg-[#fffdf6] p-4 shadow-[0_16px_50px_rgba(22,63,49,0.08)] sm:p-6">
+          <div data-analysis-grid className="grid items-start gap-5 md:grid-cols-2 lg:gap-7">
+            <section aria-labelledby="upload-title" className="tool-card rounded-3xl border border-[#163f31]/12 bg-[#fffdf6] p-4 sm:p-6">
               <div className="mb-4 flex items-start justify-between gap-4">
                 <div>
                   <p className="text-xs font-extrabold tracking-[0.14em] text-[#9d4e34] uppercase">Paso 1</p>
@@ -411,7 +420,7 @@ export default function Home() {
               </form>
             </section>
 
-            <section aria-labelledby="result-title" aria-live="polite" aria-busy={loading} className="rounded-3xl border border-[#163f31]/12 bg-[#fffdf6] p-4 shadow-[0_16px_50px_rgba(22,63,49,0.08)] sm:p-6">
+            <section aria-labelledby="result-title" aria-live="polite" aria-busy={loading} className="tool-card rounded-3xl border border-[#163f31]/12 bg-[#fffdf6] p-4 sm:p-6">
               <p className="text-xs font-extrabold tracking-[0.14em] text-[#9d4e34] uppercase">Paso 2</p>
 
               {loading ? (
@@ -513,7 +522,7 @@ export default function Home() {
           </div>
         </section>
 
-        <section id="guia" aria-labelledby="guide-title" className="scroll-mt-28 pt-14 sm:scroll-mt-20 sm:pt-16">
+        <section id="guia" aria-labelledby="guide-title" className="guide-section mt-14 scroll-mt-28 rounded-[2rem] px-4 py-8 sm:mt-16 sm:scroll-mt-20 sm:px-7 sm:py-10">
           <div className="max-w-3xl">
             <p className="text-xs font-extrabold tracking-[0.16em] text-[#9d4e34] uppercase">Guía visual educativa</p>
             <h2 id="guide-title" className="mt-2 text-3xl font-black tracking-[-0.04em] text-[#163f31] sm:text-4xl">
@@ -559,57 +568,13 @@ export default function Home() {
             ))}
           </div>
 
-          <p className="mt-5 rounded-2xl border border-[#d0a24c]/50 bg-[#fbf4df] px-5 py-4 text-sm leading-6 text-[#5e4b23]">
+          <p className="mt-5 rounded-2xl border border-[#d0a24c]/50 bg-[#fff9e9] px-5 py-4 text-sm leading-6 text-[#5e4b23]">
             Las explicaciones de Cenicafé describen información agronómica general. Las etiquetas de RoCoLe solo indican la categoría asignada a cada fotografía; en particular, “ácaro rojo” no identifica una especie concreta en la documentación del dataset.
           </p>
         </section>
-
-        <section
-          id="sobre-modelo"
-          aria-labelledby="evaluation-title"
-          className="mt-14 scroll-mt-28 rounded-3xl border border-[#163f31]/12 bg-[#fffdf6] p-5 shadow-[0_16px_50px_rgba(22,63,49,0.06)] sm:scroll-mt-20 sm:p-7"
-        >
-          <div className="max-w-3xl">
-            <p className="text-xs font-extrabold tracking-[0.14em] text-[#9d4e34] uppercase">Sobre el modelo</p>
-            <h2 id="evaluation-title" className="mt-1 text-2xl font-black tracking-[-0.025em] text-[#163f31]">
-              Evaluación del prototipo
-            </h2>
-            <p className="mt-2 text-sm leading-6 text-[#455f55]">
-              Estas cifras describen el conjunto de prueba fijado de 300 imágenes de la versión 1. No son garantías de desempeño para fotografías nuevas y no se usarán para ajustar la versión 2.
-            </p>
-          </div>
-
-          <dl className="mt-5 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            <div className="rounded-2xl bg-[#f6f0df] p-4">
-              <dt className="text-xs font-bold tracking-wide text-[#52675f] uppercase">Imágenes de prueba</dt>
-              <dd className="mt-1 text-2xl font-black text-[#163f31]">300</dd>
-            </div>
-            <div className="rounded-2xl bg-[#f6f0df] p-4">
-              <dt className="text-xs font-bold tracking-wide text-[#52675f] uppercase">Accuracy general</dt>
-              <dd className="mt-1 text-2xl font-black text-[#163f31]">71,67 %</dd>
-            </div>
-            <div className="rounded-2xl bg-[#f6f0df] p-4">
-              <dt className="text-xs font-bold tracking-wide text-[#52675f] uppercase">F1 macro</dt>
-              <dd className="mt-1 text-2xl font-black text-[#163f31]">0,6235</dd>
-            </div>
-            <div className="rounded-2xl bg-[#f6f0df] p-4">
-              <dt className="text-xs font-bold tracking-wide text-[#52675f] uppercase">Cobertura con umbral 0,70</dt>
-              <dd className="mt-1 text-2xl font-black text-[#163f31]">52,67 %</dd>
-            </div>
-          </dl>
-
-          <div className="mt-4 grid gap-4 border-t border-[#163f31]/10 pt-4 text-sm leading-6 text-[#455f55] md:grid-cols-2">
-            <p>
-              Con el umbral provisional de 0,70 se aceptaron <strong className="text-[#163f31]">158 de 300</strong> predicciones: 140 correctas y 18 incorrectas. La accuracy dentro de ese subconjunto fue 88,61 %.
-            </p>
-            <p>
-              La principal limitación observada fue la clasificación de <strong className="text-[#163f31]">ácaro rojo</strong>. El umbral no está calibrado y tampoco detecta imágenes que no sean hojas de café.
-            </p>
-          </div>
-        </section>
       </main>
 
-      <footer className="mt-10 border-t border-[#163f31]/12 bg-[#163f31] px-4 py-7 text-center text-sm leading-6 text-[#f6f0df]">
+      <footer className="mt-10 border-t border-[#163f31]/12 bg-[#163f31] px-4 py-6 text-center text-sm leading-6 text-[#f6f0df]">
         CaféIA es un prototipo académico de tres clases. No reemplaza la revisión de una persona experta.
       </footer>
     </>

@@ -1,0 +1,670 @@
+{
+  "scope": "VAL integration sample; not independent evaluation; TEST not consulted",
+  "api_base_url": "http://127.0.0.1:8010",
+  "selection_sha256": "242ffc4c78d1e28bab89f3550f65f11f385ce0d0d4511c38b18b59b6e0793f3f",
+  "checkpoint_path": "models/mobilenet_finetuned_epoch6.pt",
+  "checkpoint_sha256": "4ab4e52fc3d417fe5fb126ff1e5b346f080c55ffa80232cffd5d6e6622e46c94",
+  "manifest_sha256": "1ea21d6b2b480b830065c5d4d1d90f531234cc2aa244d7bb98c5873363866dab",
+  "class_order": [
+    "coffee___healthy",
+    "coffee___red_spider_mite",
+    "coffee___rust"
+  ],
+  "preprocessing": {
+    "orientation": "ImageOps.exif_transpose",
+    "color": "RGB",
+    "resize": [
+      224,
+      224
+    ],
+    "tensor": "ToTensor",
+    "normalization_mean": [
+      0.485,
+      0.456,
+      0.406
+    ],
+    "normalization_std": [
+      0.229,
+      0.224,
+      0.225
+    ]
+  },
+  "uncertainty_threshold": 0.7,
+  "score_absolute_tolerance": 1e-07,
+  "api_health": {
+    "status": "ok",
+    "model_loaded": true,
+    "model": "mobilenet",
+    "model_id": "mobilenet-v3-small-finetuned-epoch6",
+    "checkpoint_sha256": "4ab4e52fc3d417fe5fb126ff1e5b346f080c55ffa80232cffd5d6e6622e46c94",
+    "selected_epoch": 6,
+    "uncertainty_threshold": 0.7,
+    "classes": [
+      "coffee___healthy",
+      "coffee___red_spider_mite",
+      "coffee___rust"
+    ]
+  },
+  "health_checks": {
+    "http_200": true,
+    "model_loaded": true,
+    "checkpoint_sha256": true,
+    "class_order": true,
+    "uncertainty_threshold": true
+  },
+  "sample_size": 15,
+  "integration_matches": 15,
+  "classification_correct": 12,
+  "classification_errors": 3,
+  "uncertain_count": 6,
+  "max_score_absolute_difference": 0.0,
+  "browser_candidates": [
+    {
+      "purpose": "ejemplo con etiqueta Hoja sana",
+      "path": "data/raw/coffee___healthy/C4P26H1.jpg"
+    },
+    {
+      "purpose": "ejemplo con etiqueta Ácaro rojo",
+      "path": "data/raw/coffee___red_spider_mite/C11P37E2.jpg"
+    },
+    {
+      "purpose": "ejemplo con etiqueta Roya",
+      "path": "data/raw/coffee___rust/C8P3H1.jpg"
+    },
+    {
+      "purpose": "resultado incierto de la selección",
+      "path": "data/raw/coffee___healthy/C4P26H1.jpg"
+    },
+    {
+      "purpose": "clasificación incorrecta de la selección",
+      "path": "data/raw/coffee___red_spider_mite/C11P37E2.jpg"
+    }
+  ],
+  "results": [
+    {
+      "selection_index": 1,
+      "path": "data/raw/coffee___healthy/C4P26H1.jpg",
+      "filename": "C4P26H1.jpg",
+      "group": "C4P26",
+      "true_label": "coffee___healthy",
+      "true_label_display": "Hoja sana",
+      "original_classification": "healthy",
+      "annotation_id": "cjvo7rh3ptusp0828w33071pg",
+      "predicted_label": "coffee___healthy",
+      "predicted_label_display": "Hoja sana",
+      "top_score": 0.634767472743988,
+      "direct_scores": {
+        "coffee___healthy": 0.634767472743988,
+        "coffee___red_spider_mite": 0.2491665929555893,
+        "coffee___rust": 0.1160658523440361
+      },
+      "api_scores": {
+        "coffee___healthy": 0.634767472743988,
+        "coffee___red_spider_mite": 0.2491665929555893,
+        "coffee___rust": 0.1160658523440361
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": true,
+      "is_uncertain": true,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    },
+    {
+      "selection_index": 2,
+      "path": "data/raw/coffee___healthy/C12P1H1.jpg",
+      "filename": "C12P1H1.jpg",
+      "group": "C12P1",
+      "true_label": "coffee___healthy",
+      "true_label_display": "Hoja sana",
+      "original_classification": "healthy",
+      "annotation_id": "cjvqzn5rbk0sx0a087r6jvoqk",
+      "predicted_label": "coffee___healthy",
+      "predicted_label_display": "Hoja sana",
+      "top_score": 0.45887407660484314,
+      "direct_scores": {
+        "coffee___healthy": 0.45887407660484314,
+        "coffee___red_spider_mite": 0.2155933529138565,
+        "coffee___rust": 0.32553258538246155
+      },
+      "api_scores": {
+        "coffee___healthy": 0.45887407660484314,
+        "coffee___red_spider_mite": 0.2155933529138565,
+        "coffee___rust": 0.32553258538246155
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": true,
+      "is_uncertain": true,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    },
+    {
+      "selection_index": 3,
+      "path": "data/raw/coffee___healthy/C9P5E2.jpg",
+      "filename": "C9P5E2.jpg",
+      "group": "C9P5",
+      "true_label": "coffee___healthy",
+      "true_label_display": "Hoja sana",
+      "original_classification": "healthy",
+      "annotation_id": "cjvqry9wji6610804hamjlsnw",
+      "predicted_label": "coffee___healthy",
+      "predicted_label_display": "Hoja sana",
+      "top_score": 0.6490657925605774,
+      "direct_scores": {
+        "coffee___healthy": 0.6490657925605774,
+        "coffee___red_spider_mite": 0.023243306204676628,
+        "coffee___rust": 0.3276909291744232
+      },
+      "api_scores": {
+        "coffee___healthy": 0.6490657925605774,
+        "coffee___red_spider_mite": 0.023243306204676628,
+        "coffee___rust": 0.3276909291744232
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": true,
+      "is_uncertain": true,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    },
+    {
+      "selection_index": 4,
+      "path": "data/raw/coffee___healthy/C2P18E1.jpg",
+      "filename": "C2P18E1.jpg",
+      "group": "C2P18",
+      "true_label": "coffee___healthy",
+      "true_label_display": "Hoja sana",
+      "original_classification": "healthy",
+      "annotation_id": "cjvnz0eh4pr5s0828cfppc8u9",
+      "predicted_label": "coffee___healthy",
+      "predicted_label_display": "Hoja sana",
+      "top_score": 0.936996340751648,
+      "direct_scores": {
+        "coffee___healthy": 0.936996340751648,
+        "coffee___red_spider_mite": 0.040645476430654526,
+        "coffee___rust": 0.02235819399356842
+      },
+      "api_scores": {
+        "coffee___healthy": 0.936996340751648,
+        "coffee___red_spider_mite": 0.040645476430654526,
+        "coffee___rust": 0.02235819399356842
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": true,
+      "is_uncertain": false,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    },
+    {
+      "selection_index": 5,
+      "path": "data/raw/coffee___healthy/C8P6H1.jpg",
+      "filename": "C8P6H1.jpg",
+      "group": "C8P6",
+      "true_label": "coffee___healthy",
+      "true_label_display": "Hoja sana",
+      "original_classification": "healthy",
+      "annotation_id": "cjvphbd477be90804mxibwk50",
+      "predicted_label": "coffee___healthy",
+      "predicted_label_display": "Hoja sana",
+      "top_score": 0.48267507553100586,
+      "direct_scores": {
+        "coffee___healthy": 0.48267507553100586,
+        "coffee___red_spider_mite": 0.07853976637125015,
+        "coffee___rust": 0.4387851357460022
+      },
+      "api_scores": {
+        "coffee___healthy": 0.48267507553100586,
+        "coffee___red_spider_mite": 0.07853976637125015,
+        "coffee___rust": 0.4387851357460022
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": true,
+      "is_uncertain": true,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    },
+    {
+      "selection_index": 6,
+      "path": "data/raw/coffee___red_spider_mite/C11P37E2.jpg",
+      "filename": "C11P37E2.jpg",
+      "group": "C11P37",
+      "true_label": "coffee___red_spider_mite",
+      "true_label_display": "Ácaro rojo",
+      "original_classification": "red_spider_mite",
+      "annotation_id": "cjvqzjemajxs10828zbdybn9i",
+      "predicted_label": "coffee___rust",
+      "predicted_label_display": "Roya",
+      "top_score": 0.71725994348526,
+      "direct_scores": {
+        "coffee___healthy": 0.026079870760440826,
+        "coffee___red_spider_mite": 0.25666022300720215,
+        "coffee___rust": 0.71725994348526
+      },
+      "api_scores": {
+        "coffee___healthy": 0.026079870760440826,
+        "coffee___red_spider_mite": 0.25666022300720215,
+        "coffee___rust": 0.71725994348526
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": false,
+      "is_uncertain": false,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    },
+    {
+      "selection_index": 7,
+      "path": "data/raw/coffee___red_spider_mite/C10P40E2.jpg",
+      "filename": "C10P40E2.jpg",
+      "group": "C10P40",
+      "true_label": "coffee___red_spider_mite",
+      "true_label_display": "Ácaro rojo",
+      "original_classification": "red_spider_mite",
+      "annotation_id": "cjvqx1pg5j7ff07954pdb50yo",
+      "predicted_label": "coffee___red_spider_mite",
+      "predicted_label_display": "Ácaro rojo",
+      "top_score": 0.3963543474674225,
+      "direct_scores": {
+        "coffee___healthy": 0.3041759431362152,
+        "coffee___red_spider_mite": 0.3963543474674225,
+        "coffee___rust": 0.2994697391986847
+      },
+      "api_scores": {
+        "coffee___healthy": 0.3041759431362152,
+        "coffee___red_spider_mite": 0.3963543474674225,
+        "coffee___rust": 0.2994697391986847
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": true,
+      "is_uncertain": true,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    },
+    {
+      "selection_index": 8,
+      "path": "data/raw/coffee___red_spider_mite/C12P13E2.jpg",
+      "filename": "C12P13E2.jpg",
+      "group": "C12P13",
+      "true_label": "coffee___red_spider_mite",
+      "true_label_display": "Ácaro rojo",
+      "original_classification": "red_spider_mite",
+      "annotation_id": "cjvr02166k4bq0828eyrh9s9n",
+      "predicted_label": "coffee___red_spider_mite",
+      "predicted_label_display": "Ácaro rojo",
+      "top_score": 0.6344242095947266,
+      "direct_scores": {
+        "coffee___healthy": 0.01590747945010662,
+        "coffee___red_spider_mite": 0.6344242095947266,
+        "coffee___rust": 0.34966832399368286
+      },
+      "api_scores": {
+        "coffee___healthy": 0.01590747945010662,
+        "coffee___red_spider_mite": 0.6344242095947266,
+        "coffee___rust": 0.34966832399368286
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": true,
+      "is_uncertain": true,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    },
+    {
+      "selection_index": 9,
+      "path": "data/raw/coffee___red_spider_mite/C2P15E2.jpg",
+      "filename": "C2P15E2.jpg",
+      "group": "C2P15",
+      "true_label": "coffee___red_spider_mite",
+      "true_label_display": "Ácaro rojo",
+      "original_classification": "red_spider_mite",
+      "annotation_id": "cjvnyy9j3psai0838ockd3uah",
+      "predicted_label": "coffee___red_spider_mite",
+      "predicted_label_display": "Ácaro rojo",
+      "top_score": 0.7666981220245361,
+      "direct_scores": {
+        "coffee___healthy": 0.06408345699310303,
+        "coffee___red_spider_mite": 0.7666981220245361,
+        "coffee___rust": 0.16921839118003845
+      },
+      "api_scores": {
+        "coffee___healthy": 0.06408345699310303,
+        "coffee___red_spider_mite": 0.7666981220245361,
+        "coffee___rust": 0.16921839118003845
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": true,
+      "is_uncertain": false,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    },
+    {
+      "selection_index": 10,
+      "path": "data/raw/coffee___red_spider_mite/C2P22E2.jpg",
+      "filename": "C2P22E2.jpg",
+      "group": "C2P22",
+      "true_label": "coffee___red_spider_mite",
+      "true_label_display": "Ácaro rojo",
+      "original_classification": "red_spider_mite",
+      "annotation_id": "cjvnz4ihtpsy00828gc9ykrtw",
+      "predicted_label": "coffee___red_spider_mite",
+      "predicted_label_display": "Ácaro rojo",
+      "top_score": 0.8511590361595154,
+      "direct_scores": {
+        "coffee___healthy": 0.011052954941987991,
+        "coffee___red_spider_mite": 0.8511590361595154,
+        "coffee___rust": 0.13778795301914215
+      },
+      "api_scores": {
+        "coffee___healthy": 0.011052954941987991,
+        "coffee___red_spider_mite": 0.8511590361595154,
+        "coffee___rust": 0.13778795301914215
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": true,
+      "is_uncertain": false,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    },
+    {
+      "selection_index": 11,
+      "path": "data/raw/coffee___rust/C8P3H1.jpg",
+      "filename": "C8P3H1.jpg",
+      "group": "C8P3",
+      "true_label": "coffee___rust",
+      "true_label_display": "Roya",
+      "original_classification": "rust_level_1",
+      "annotation_id": "cjvpgszo77fsd0866bv6oehm5",
+      "predicted_label": "coffee___rust",
+      "predicted_label_display": "Roya",
+      "top_score": 0.8833500146865845,
+      "direct_scores": {
+        "coffee___healthy": 0.019804440438747406,
+        "coffee___red_spider_mite": 0.09684555977582932,
+        "coffee___rust": 0.8833500146865845
+      },
+      "api_scores": {
+        "coffee___healthy": 0.019804440438747406,
+        "coffee___red_spider_mite": 0.09684555977582932,
+        "coffee___rust": 0.8833500146865845
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": true,
+      "is_uncertain": false,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    },
+    {
+      "selection_index": 12,
+      "path": "data/raw/coffee___rust/C8P12E1.jpg",
+      "filename": "C8P12E1.jpg",
+      "group": "C8P12",
+      "true_label": "coffee___rust",
+      "true_label_display": "Roya",
+      "original_classification": "rust_level_1",
+      "annotation_id": "cjvpke8m282z10838yf6lv7nc",
+      "predicted_label": "coffee___healthy",
+      "predicted_label_display": "Hoja sana",
+      "top_score": 0.831809401512146,
+      "direct_scores": {
+        "coffee___healthy": 0.831809401512146,
+        "coffee___red_spider_mite": 0.05939844995737076,
+        "coffee___rust": 0.10879220068454742
+      },
+      "api_scores": {
+        "coffee___healthy": 0.831809401512146,
+        "coffee___red_spider_mite": 0.05939844995737076,
+        "coffee___rust": 0.10879220068454742
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": false,
+      "is_uncertain": false,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    },
+    {
+      "selection_index": 13,
+      "path": "data/raw/coffee___rust/C10P36E2.jpg",
+      "filename": "C10P36E2.jpg",
+      "group": "C10P36",
+      "true_label": "coffee___rust",
+      "true_label_display": "Roya",
+      "original_classification": "rust_level_1",
+      "annotation_id": "cjvqwtsqhjr4x0a70eq9op1gm",
+      "predicted_label": "coffee___rust",
+      "predicted_label_display": "Roya",
+      "top_score": 0.7586209774017334,
+      "direct_scores": {
+        "coffee___healthy": 0.005243420135229826,
+        "coffee___red_spider_mite": 0.2361355870962143,
+        "coffee___rust": 0.7586209774017334
+      },
+      "api_scores": {
+        "coffee___healthy": 0.005243420135229826,
+        "coffee___red_spider_mite": 0.2361355870962143,
+        "coffee___rust": 0.7586209774017334
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": true,
+      "is_uncertain": false,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    },
+    {
+      "selection_index": 14,
+      "path": "data/raw/coffee___rust/C5P12E1.jpg",
+      "filename": "C5P12E1.jpg",
+      "group": "C5P12",
+      "true_label": "coffee___rust",
+      "true_label_display": "Roya",
+      "original_classification": "rust_level_2",
+      "annotation_id": "cjvocguikwnd80a08gqm2eovj",
+      "predicted_label": "coffee___rust",
+      "predicted_label_display": "Roya",
+      "top_score": 0.7762677073478699,
+      "direct_scores": {
+        "coffee___healthy": 0.06415790319442749,
+        "coffee___red_spider_mite": 0.15957440435886383,
+        "coffee___rust": 0.7762677073478699
+      },
+      "api_scores": {
+        "coffee___healthy": 0.06415790319442749,
+        "coffee___red_spider_mite": 0.15957440435886383,
+        "coffee___rust": 0.7762677073478699
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": true,
+      "is_uncertain": false,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    },
+    {
+      "selection_index": 15,
+      "path": "data/raw/coffee___rust/C1P9E2.jpg",
+      "filename": "C1P9E2.jpg",
+      "group": "C1P9",
+      "true_label": "coffee___rust",
+      "true_label_display": "Roya",
+      "original_classification": "rust_level_2",
+      "annotation_id": "cjvo60distcs40a70135092qd",
+      "predicted_label": "coffee___red_spider_mite",
+      "predicted_label_display": "Ácaro rojo",
+      "top_score": 0.8157251477241516,
+      "direct_scores": {
+        "coffee___healthy": 0.08215946704149246,
+        "coffee___red_spider_mite": 0.8157251477241516,
+        "coffee___rust": 0.10211540758609772
+      },
+      "api_scores": {
+        "coffee___healthy": 0.08215946704149246,
+        "coffee___red_spider_mite": 0.8157251477241516,
+        "coffee___rust": 0.10211540758609772
+      },
+      "score_absolute_differences": {
+        "coffee___healthy": 0.0,
+        "coffee___red_spider_mite": 0.0,
+        "coffee___rust": 0.0
+      },
+      "max_score_absolute_difference": 0.0,
+      "classification_correct": false,
+      "is_uncertain": false,
+      "integration_checks": {
+        "score_order": true,
+        "category": true,
+        "scores": true,
+        "uncertainty": true,
+        "threshold": true
+      },
+      "integration_agreement": true
+    }
+  ]
+}
