@@ -6,14 +6,16 @@ import warnings
 from contextlib import asynccontextmanager
 from io import BytesIO
 from pathlib import Path
+from typing import Literal
 
 import torch
 from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from src.common import ROOT, load_checkpoint, transform
+from src.domain_guard import DomainGuard, mobilenet_logits_and_embedding
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
 READ_CHUNK_SIZE = 1024 * 1024
@@ -31,6 +33,10 @@ EXPECTED_CLASS_ORDER = [
     "coffee___rust",
 ]
 DEFAULT_ALLOWED_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
+OUTSIDE_DOMAIN_MESSAGE = (
+    "No se pudo confirmar que la imagen corresponda a una hoja de café. "
+    "Carga una fotografía de una sola hoja de café."
+)
 
 
 class ClassScore(BaseModel):
@@ -40,10 +46,15 @@ class ClassScore(BaseModel):
 
 
 class PredictionResponse(BaseModel):
-    category: str
-    category_label: str
-    score: float
-    scores: list[ClassScore]
+    status: Literal["classified", "uncertain", "outside_domain"]
+    is_supported_image: bool
+    domain_score: float
+    domain_threshold: float
+    message: str | None = None
+    category: str | None = None
+    category_label: str | None = None
+    score: float | None = None
+    scores: list[ClassScore] = Field(default_factory=list)
     is_uncertain: bool
     uncertainty_threshold: float
 
@@ -54,13 +65,24 @@ class HealthResponse(BaseModel):
     model: str
     model_id: str
     checkpoint_sha256: str
+    domain_guard_loaded: bool
+    domain_guard_sha256: str
+    domain_guard_method: str
+    domain_threshold: float
     selected_epoch: int | None
     uncertainty_threshold: float
     classes: list[str]
 
 
 class Predictor:
-    def __init__(self, checkpoint_path: Path, expected_sha256: str, model_id: str) -> None:
+    def __init__(
+        self,
+        checkpoint_path: Path,
+        expected_sha256: str,
+        model_id: str,
+        domain_guard_path: Path,
+        expected_domain_guard_sha256: str,
+    ) -> None:
         self.checkpoint_sha256 = _sha256_file(checkpoint_path)
         if self.checkpoint_sha256 != expected_sha256:
             raise RuntimeError(
@@ -77,11 +99,54 @@ class Predictor:
             )
         # Es exactamente la transformación de inferencia definida en src/common.py.
         self.preprocess = transform(training=False)
+        self.domain_guard_sha256 = _sha256_file(domain_guard_path)
+        if self.domain_guard_sha256 != expected_domain_guard_sha256:
+            raise RuntimeError(
+                "El SHA256 del filtro de dominio no coincide con DOMAIN_GUARD_SHA256: "
+                f"esperado {expected_domain_guard_sha256}, obtenido {self.domain_guard_sha256}"
+            )
+        self.domain_guard = DomainGuard.load(domain_guard_path)
+        guard_checkpoint_sha256 = self.domain_guard.metadata.get("checkpoint_sha256")
+        if guard_checkpoint_sha256 != self.checkpoint_sha256:
+            raise RuntimeError(
+                "El filtro de dominio fue construido con un checkpoint diferente: "
+                f"{guard_checkpoint_sha256}"
+            )
+        guard_classes = self.domain_guard.metadata.get("classes")
+        if guard_classes != self.classes:
+            raise RuntimeError(
+                "El orden de clases del filtro de dominio no coincide con el checkpoint"
+            )
+        guard_manifest_sha256 = self.domain_guard.metadata.get("manifest_sha256")
+        if guard_manifest_sha256 != self.checkpoint.get("manifest_sha256"):
+            raise RuntimeError(
+                "El filtro de dominio y el checkpoint no corresponden al mismo manifiesto"
+            )
+        expected_embedding_size = self.model.classifier[0].out_features
+        if self.domain_guard.reference_embeddings.shape[1] != expected_embedding_size:
+            raise RuntimeError(
+                "La dimensión del filtro de dominio no es compatible con MobileNet"
+            )
+        self.domain_guard_method = str(self.domain_guard.metadata.get("method", "unknown"))
 
     def predict(self, image: Image.Image) -> PredictionResponse:
         tensor = self.preprocess(image).unsqueeze(0)
         with torch.inference_mode():
-            probabilities = torch.softmax(self.model(tensor), dim=1)[0].tolist()
+            logits, embedding = mobilenet_logits_and_embedding(self.model, tensor)
+            domain_score = float(self.domain_guard.scores(embedding)[0])
+
+        if domain_score < self.domain_guard.threshold:
+            return PredictionResponse(
+                status="outside_domain",
+                is_supported_image=False,
+                domain_score=domain_score,
+                domain_threshold=self.domain_guard.threshold,
+                message=OUTSIDE_DOMAIN_MESSAGE,
+                is_uncertain=True,
+                uncertainty_threshold=UNCERTAINTY_THRESHOLD,
+            )
+
+        probabilities = torch.softmax(logits, dim=1)[0].tolist()
 
         best_index = max(range(len(probabilities)), key=probabilities.__getitem__)
         best_score = float(probabilities[best_index])
@@ -91,6 +156,10 @@ class Predictor:
             for index, category in enumerate(self.classes)
         ]
         return PredictionResponse(
+            status="uncertain" if best_score < UNCERTAINTY_THRESHOLD else "classified",
+            is_supported_image=True,
+            domain_score=domain_score,
+            domain_threshold=self.domain_guard.threshold,
             category=best_category,
             category_label=CLASS_NAMES[best_category],
             score=best_score,
@@ -105,6 +174,11 @@ def _checkpoint_path() -> Path:
     return configured if configured.is_absolute() else ROOT / configured
 
 
+def _domain_guard_path() -> Path:
+    configured = Path(os.getenv("DOMAIN_GUARD_PATH", "models/coffee_domain_guard.pt"))
+    return configured if configured.is_absolute() else ROOT / configured
+
+
 def _sha256_file(path: Path) -> str:
     digest = hashlib.sha256()
     with path.open("rb") as handle:
@@ -113,10 +187,12 @@ def _sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _expected_model_sha256() -> str:
-    expected = os.getenv("MODEL_SHA256", "").strip().lower()
+def _expected_sha256(environment_variable: str) -> str:
+    expected = os.getenv(environment_variable, "").strip().lower()
     if len(expected) != 64 or any(character not in "0123456789abcdef" for character in expected):
-        raise RuntimeError("MODEL_SHA256 debe contener un SHA256 hexadecimal de 64 caracteres")
+        raise RuntimeError(
+            f"{environment_variable} debe contener un SHA256 hexadecimal de 64 caracteres"
+        )
     return expected
 
 
@@ -146,18 +222,23 @@ async def lifespan(app: FastAPI):
     checkpoint_path = _checkpoint_path()
     if not checkpoint_path.is_file():
         raise FileNotFoundError(f"No se encontró el checkpoint: {checkpoint_path}")
+    domain_guard_path = _domain_guard_path()
+    if not domain_guard_path.is_file():
+        raise FileNotFoundError(f"No se encontró el filtro de dominio: {domain_guard_path}")
     app.state.predictor = Predictor(
         checkpoint_path=checkpoint_path,
-        expected_sha256=_expected_model_sha256(),
+        expected_sha256=_expected_sha256("MODEL_SHA256"),
         model_id=_model_id(),
+        domain_guard_path=domain_guard_path,
+        expected_domain_guard_sha256=_expected_sha256("DOMAIN_GUARD_SHA256"),
     )
     yield
 
 
 app = FastAPI(
     title="CaféIA API",
-    description="API local del prototipo académico de clasificación de hojas de café.",
-    version="0.1.0",
+    description="API de apoyo para clasificación visual de hojas de café en tres categorías.",
+    version="0.2.0",
     lifespan=lifespan,
 )
 app.add_middleware(
@@ -219,6 +300,10 @@ def health(request: Request) -> HealthResponse:
         model=predictor.checkpoint["model"],
         model_id=predictor.model_id,
         checkpoint_sha256=predictor.checkpoint_sha256,
+        domain_guard_loaded=True,
+        domain_guard_sha256=predictor.domain_guard_sha256,
+        domain_guard_method=predictor.domain_guard_method,
+        domain_threshold=predictor.domain_guard.threshold,
         selected_epoch=predictor.checkpoint.get("selected_candidate_epoch"),
         uncertainty_threshold=UNCERTAINTY_THRESHOLD,
         classes=predictor.classes,

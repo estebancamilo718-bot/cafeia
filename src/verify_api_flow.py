@@ -23,6 +23,7 @@ EXPECTED_CLASSES = [
     "coffee___rust",
 ]
 MAX_FILE_SIZE = 10 * 1024 * 1024
+EXPECTED_DOMAIN_GUARD_SHA256 = "8060ef83e4a018d6a49e22fc5b59162f4ec6cbba90482e27d7896c79106d90e7"
 
 
 def sha256_file(path: Path) -> str:
@@ -160,8 +161,12 @@ def main() -> None:
     checks = {
         "health_http_200": health_status == 200,
         "health_checkpoint_sha256": health.get("checkpoint_sha256") == checkpoint_hash,
+        "health_domain_guard_loaded": health.get("domain_guard_loaded") is True,
+        "health_domain_guard_sha256": health.get("domain_guard_sha256")
+        == EXPECTED_DOMAIN_GUARD_SHA256,
         "health_class_order": health.get("classes") == EXPECTED_CLASSES,
         "prediction_http_200": prediction_status == 200,
+        "prediction_passed_domain_guard": prediction.get("status") in {"classified", "uncertain"},
         "prediction_category_matches_direct": prediction.get("category")
         == EXPECTED_CLASSES[max(range(len(direct_scores)), key=direct_scores.__getitem__)],
         "all_scores_match_within_1e-7": max_score_difference <= 1e-7,

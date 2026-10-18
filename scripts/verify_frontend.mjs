@@ -3,9 +3,9 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 
-const [uncertainImage, replacementImage, acceptedImage] = process.argv.slice(2);
+const [uncertainImage, replacementImage, acceptedImage, outsideDomainImage] = process.argv.slice(2);
 if (!uncertainImage || !replacementImage || !acceptedImage) {
-  throw new Error("Uso: node scripts/verify_frontend.mjs <incierta> <reemplazo> <aceptada>");
+  throw new Error("Uso: node scripts/verify_frontend.mjs <incierta> <reemplazo> <aceptada> [fuera-del-dominio]");
 }
 
 const edgePath = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
@@ -96,7 +96,11 @@ async function waitFor(client, expression, description) {
     if (await evaluate(client, expression)) return;
     await delay(100);
   }
-  throw new Error(`No se observó el estado esperado: ${description}`);
+  const context = await evaluate(
+    client,
+    `({ url: location.href, title: document.title, text: document.body?.innerText?.slice(0, 500) })`,
+  );
+  throw new Error(`No se observó el estado esperado: ${description}. Estado: ${JSON.stringify(context)}`);
 }
 
 async function setViewport(client, width, height = 1000) {
@@ -137,6 +141,14 @@ async function clickButton(client, text) {
   if (!clicked) throw new Error(`No se encontró el botón: ${text}`);
 }
 
+async function clickDialogTab(client, text) {
+  const clicked = await evaluate(
+    client,
+    `(() => { const tab = [...document.querySelectorAll("[role=dialog] [role=tab]")].find((item) => item.textContent.trim() === ${JSON.stringify(text)}); if (!tab) return false; tab.click(); return true; })()`,
+  );
+  if (!clicked) throw new Error(`No se encontró la pestaña del diálogo: ${text}`);
+}
+
 let client;
 try {
   const target = await waitForDebugTarget();
@@ -145,8 +157,64 @@ try {
   await client.send("Page.enable");
   await client.send("DOM.enable");
   await client.send("Network.enable");
-  await client.send("Page.navigate", { url: "http://127.0.0.1:3000" });
+  await client.send("Page.navigate", { url: "http://localhost:3000" });
+  await waitFor(
+    client,
+    "location.origin === 'http://localhost:3000'",
+    "navegación a CaféIA",
+  );
   await waitFor(client, "document.readyState === 'complete'", "carga inicial");
+
+  await waitFor(client, "document.querySelector('[role=dialog]') !== null", "aviso de privacidad inicial");
+  await setViewport(client, 390);
+  await screenshot(client, "consent_390.png");
+  await setViewport(client, 1440);
+  await screenshot(client, "consent_1440.png");
+
+  const consentNotice = await evaluate(
+    client,
+    `({
+      hasNoStorageClaim: document.body.innerText.includes("La imagen se procesa en memoria y no se guarda"),
+      hasNoAnalyticsClaim: document.body.innerText.includes("No usamos cookies publicitarias ni de analítica"),
+      title: document.querySelector("#consent-title")?.textContent,
+    })`,
+  );
+
+  await clickDialogTab(client, "Privacidad");
+  await waitFor(client, "document.body.innerText.includes('Un flujo corto y explícito')", "pestaña de privacidad");
+  await clickDialogTab(client, "Alcance");
+  await waitFor(client, "document.body.innerText.includes('Qué puede y qué no puede hacer CaféIA')", "pestaña de alcance");
+  await clickDialogTab(client, "Consentimiento");
+  await waitFor(client, "document.body.innerText.includes('Autoriza el análisis antes de enviar una imagen')", "pestaña de consentimiento");
+
+  await clickButton(client, "Continuar sin analizar");
+  await waitFor(
+    client,
+    "document.querySelector('[role=dialog]') === null && document.querySelector('#leaf-photo')?.disabled === true",
+    "rechazo bloquea el selector",
+  );
+  const declineBlockedUpload = await evaluate(client, "document.querySelector('#leaf-photo')?.disabled === true");
+
+  await clickButton(client, "Revisar privacidad");
+  await waitFor(client, "document.querySelector('[role=dialog]') !== null", "reapertura del consentimiento");
+  await clickButton(client, "Aceptar y continuar");
+  await waitFor(
+    client,
+    "document.querySelector('[role=dialog]') === null && document.querySelector('#leaf-photo')?.disabled === false",
+    "aceptación habilita el selector",
+  );
+  const acceptedConsentState = await evaluate(
+    client,
+    `({
+      storedChoice: localStorage.getItem("cafeia_image_processing_consent_v1"),
+      uploadEnabled: document.querySelector("#leaf-photo")?.disabled === false,
+    })`,
+  );
+  const consentState = {
+    notice: consentNotice,
+    declineBlockedUpload,
+    ...acceptedConsentState,
+  };
 
   const responsive = {};
   for (const width of [390, 768, 1440]) {
@@ -157,6 +225,12 @@ try {
     );
     await screenshot(client, `initial_${width}.png`);
   }
+
+  await setViewport(client, 1440);
+  await evaluate(client, "document.querySelector('#guia')?.scrollIntoView({ block: 'start' })");
+  await delay(200);
+  await screenshot(client, "guide_1440.png");
+  await evaluate(client, "window.scrollTo(0, 0)");
 
   await setViewport(client, 390);
   await setFile(client, uncertainImage);
@@ -170,6 +244,8 @@ try {
     client,
     `({ title: document.querySelector("#result-title")?.textContent, hasSecondary: document.body.innerText.includes("Categoría más probable:"), exposesInternalId: document.body.innerText.includes("coffee___") })`,
   );
+  await evaluate(client, "document.querySelector('#result-title')?.scrollIntoView({ block: 'center' })");
+  await delay(200);
   await screenshot(client, "uncertain_390.png");
 
   await clickButton(client, "Analizar otra fotografía");
@@ -180,7 +256,36 @@ try {
   await setViewport(client, 1440);
   await screenshot(client, "accepted_1440.png");
 
-  await clickButton(client, "Analizar otra fotografía");
+  let outsideDomainState = null;
+  if (outsideDomainImage) {
+    await clickButton(client, "Analizar otra fotografía");
+    await setFile(client, outsideDomainImage);
+    await clickButton(client, "Analizar hoja");
+    await waitFor(
+      client,
+      "document.body.innerText.includes('No se pudo confirmar que la imagen corresponda a una hoja de café')",
+      "rechazo de imagen fuera del dominio",
+    );
+    outsideDomainState = await evaluate(
+      client,
+      `({
+        title: document.querySelector("#result-title")?.textContent,
+        hasRequestedMessage: document.body.innerText.includes("Carga una fotografía de una sola hoja de café"),
+        hidesCoffeeScores: !document.body.innerText.includes("Puntuaciones por clase"),
+        exposesInternalId: document.body.innerText.includes("coffee___"),
+      })`,
+    );
+    await evaluate(client, "document.querySelector('#result-title')?.scrollIntoView({ block: 'center' })");
+    await delay(200);
+    await screenshot(client, "outside_domain_1440.png");
+    await setViewport(client, 390);
+    await evaluate(client, "document.querySelector('#result-title')?.scrollIntoView({ block: 'center' })");
+    await delay(250);
+    await screenshot(client, "outside_domain_390.png");
+    await setViewport(client, 1440);
+  }
+
+  await clickButton(client, outsideDomainImage ? "Cargar otra fotografía" : "Analizar otra fotografía");
   await setFile(client, uncertainImage);
   await client.send("Network.setBlockedURLs", { urls: ["http://127.0.0.1:8000/*"] });
   await clickButton(client, "Analizar hoja");
@@ -202,14 +307,34 @@ try {
     `(() => { const element = document.activeElement; return { id: element?.id, ariaLabel: element?.getAttribute("aria-label") }; })()`,
   );
 
+  await clickButton(client, "Privacidad y consentimiento");
+  await waitFor(client, "document.querySelector('[role=dialog]') !== null", "gestión posterior del consentimiento");
+  await clickButton(client, "Retirar consentimiento");
+  await waitFor(
+    client,
+    "document.querySelector('[role=dialog]') === null && document.querySelector('#leaf-photo')?.disabled === true",
+    "retirada del consentimiento",
+  );
+  const revocationState = await evaluate(
+    client,
+    `({
+      storedChoice: localStorage.getItem("cafeia_image_processing_consent_v1"),
+      uploadDisabled: document.querySelector("#leaf-photo")?.disabled === true,
+      selectionCleared: !document.body.innerText.includes(${JSON.stringify(path.basename(uncertainImage))}),
+    })`,
+  );
+
   const report = {
-    url: "http://127.0.0.1:3000",
+    url: "http://localhost:3000",
+    consent: consentState,
     responsiveGridColumns: responsive,
     replacementWorked: true,
     uncertainState,
     acceptedTitle,
+    outsideDomainState,
     connectionError,
     keyboardFocus: keyboardLabel,
+    revocation: revocationState,
     screenshots: fs.readdirSync(outputDir).filter((name) => name.endsWith(".png")).sort(),
   };
   fs.writeFileSync(path.join(outputDir, "browser_checks.json"), `${JSON.stringify(report, null, 2)}\n`);

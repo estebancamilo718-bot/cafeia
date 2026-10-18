@@ -37,12 +37,13 @@ provenance/*
 provenance/rocole_mendeley_v2/*
 !provenance/rocole_mendeley_v2/README.md
 
-# Experimentos, respaldos y checkpoints; solo se publica el modelo desplegable
+# Experimentos y respaldos; solo se publican los dos artefactos necesarios para inferencia
 experiments/
 backups/
 backup/
 *.pt
 !models/mobilenet_finetuned_epoch6.pt
+!models/coffee_domain_guard.pt
 
 # Capturas locales que contienen ejemplos del dataset
 reports/web_ui_verification/*.png

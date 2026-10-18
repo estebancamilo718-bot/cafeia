@@ -1,9 +1,19 @@
 {
-  "url": "http://127.0.0.1:3000",
+  "url": "http://localhost:3000",
+  "consent": {
+    "notice": {
+      "hasNoStorageClaim": true,
+      "hasNoAnalyticsClaim": true,
+      "title": "Privacidad y consentimiento"
+    },
+    "declineBlockedUpload": true,
+    "storedChoice": "accepted",
+    "uploadEnabled": true
+  },
   "responsiveGridColumns": {
     "390": "358px",
     "768": "342.5px 342.5px",
-    "1440": "530px 530px"
+    "1440": "596px 596px"
   },
   "replacementWorked": true,
   "uncertainState": {
@@ -11,18 +21,34 @@
     "hasSecondary": true,
     "exposesInternalId": false
   },
-  "acceptedTitle": "Clasificación orientativa: Hoja sana",
+  "acceptedTitle": "Clasificación orientativa: Roya",
+  "outsideDomainState": {
+    "title": "No se pudo confirmar la hoja",
+    "hasRequestedMessage": true,
+    "hidesCoffeeScores": true,
+    "exposesInternalId": false
+  },
   "connectionError": true,
   "keyboardFocus": {
     "id": "leaf-photo",
     "ariaLabel": "Reemplazar fotografía de la hoja"
   },
+  "revocation": {
+    "storedChoice": "declined",
+    "uploadDisabled": true,
+    "selectionCleared": true
+  },
   "screenshots": [
     "accepted_1440.png",
     "connection_error_1440.png",
+    "consent_1440.png",
+    "consent_390.png",
+    "guide_1440.png",
     "initial_1440.png",
     "initial_390.png",
     "initial_768.png",
+    "outside_domain_1440.png",
+    "outside_domain_390.png",
     "uncertain_390.png"
   ]
 }

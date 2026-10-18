@@ -11,6 +11,8 @@ Este documento describe el estado vigente de CaféIA. La aplicación local funci
 - Evaluación final cerrada: 300 imágenes de TEST, accuracy `0.716667` y F1 macro `0.623486`.
 - Checkpoint desplegable: `models/mobilenet_finetuned_epoch6.pt`.
 - SHA-256: `4ab4e52fc3d417fe5fb126ff1e5b346f080c55ffa80232cffd5d6e6622e46c94`.
+- Filtro desplegable de dominio: `models/coffee_domain_guard.pt`.
+- SHA-256 del filtro: `8060ef83e4a018d6a49e22fc5b59162f4ec6cbba90482e27d7896c79106d90e7`.
 - Modelo anterior, CNN, ResNet18 y experimentos: conservados localmente, pero excluidos de Git.
 
 El experimento v2 de redimensionamiento con proporción y relleno fue rechazado: obtuvo F1 macro de VAL `0.591710`, frente a `0.647844` del control. No cambió el modelo activo ni el preprocesamiento de la web.
@@ -20,20 +22,25 @@ El experimento v2 de redimensionamiento con proporción y relleno fue rechazado:
 ```text
 frontend/                    Interfaz Next.js, TypeScript y Tailwind
   app/page.tsx               Analizador, guía y resultados del modelo
+  components/                Consentimiento accesible y revocable
   lib/                       Validación y coordinación de solicitudes
   public/guide/              Tres ejemplos atribuidos de TRAIN
 
 backend/main.py              FastAPI: /health y /predict
-  └─ src/common.py           Modelo, orden de clases y transformaciones
-       └─ models/mobilenet_finetuned_epoch6.pt
+  ├─ src/common.py           Modelo, orden de clases y transformaciones
+  ├─ src/domain_guard.py     Barrera experimental de dominio
+  ├─ models/coffee_domain_guard.pt
+  └─ models/mobilenet_finetuned_epoch6.pt
 
 src/                         Preparación, entrenamiento, validación y evaluación
 reports/                     Protocolos, métricas y auditorías
 ```
 
-La ruta de inferencia es: archivo JPG/PNG → validación de formato y contenido → orientación EXIF y RGB → `Resize((224, 224))` → tensor → normalización ImageNet → MobileNet → softmax sobre tres salidas → respuesta API → presentación web.
+La ruta de inferencia es: archivo JPG/PNG → validación de formato y contenido → orientación EXIF y RGB → `Resize((224, 224))` → tensor → normalización ImageNet → MobileNet → score experimental de dominio → si se acepta, softmax sobre tres salidas → respuesta API → presentación web. Si se rechaza, la API no devuelve categoría ni puntuaciones de café.
 
-El backend carga el checkpoint una vez en el arranque, exige su hash, verifica el orden `sana → ácaro rojo → roya` y no guarda la fotografía recibida.
+El backend carga el checkpoint y el filtro una vez en el arranque, exige sus hashes, verifica que ambos correspondan al mismo modelo y orden `sana → ácaro rojo → roya`, y no guarda la fotografía recibida.
+
+La interfaz exige consentimiento antes de habilitar el selector. La aceptación o rechazo se guarda únicamente en `localStorage`; no existen cookies publicitarias ni analítica. Si se retira el consentimiento desde el pie de página, se cancela la petición vigente y se elimina la fotografía seleccionada. `frontend/next.config.ts` fija CSP y encabezados de seguridad. En Vercel, `NEXT_PUBLIC_API_URL` debe existir durante el build para autorizar en `connect-src` únicamente el origen real del backend.
 
 ## 3. Versiones reproducibles
 
@@ -80,6 +87,8 @@ Abre dos terminales PowerShell en la raíz.
 $env:MODEL_PATH = "models/mobilenet_finetuned_epoch6.pt"
 $env:MODEL_SHA256 = "4ab4e52fc3d417fe5fb126ff1e5b346f080c55ffa80232cffd5d6e6622e46c94"
 $env:MODEL_ID = "mobilenet-v3-small-finetuned-epoch6"
+$env:DOMAIN_GUARD_PATH = "models/coffee_domain_guard.pt"
+$env:DOMAIN_GUARD_SHA256 = "8060ef83e4a018d6a49e22fc5b59162f4ec6cbba90482e27d7896c79106d90e7"
 $env:CORS_ALLOWED_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
 & .\.venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
@@ -98,7 +107,7 @@ npm.cmd run dev
 
 Abre `http://localhost:3000`.
 
-`MODEL_PATH` elige el checkpoint sin copiarlo sobre otro modelo. `MODEL_SHA256` impide iniciar con pesos inesperados. `CORS_ALLOWED_ORIGINS` es una lista de orígenes exactos, separados por comas y sin `/` final; no se admite `*`.
+`MODEL_PATH` elige el checkpoint sin copiarlo sobre otro modelo. `MODEL_SHA256` impide iniciar con pesos inesperados. `DOMAIN_GUARD_PATH` y `DOMAIN_GUARD_SHA256` hacen lo mismo con la barrera previa. `CORS_ALLOWED_ORIGINS` es una lista de orígenes exactos, separados por comas y sin `/` final; no se admite `*`.
 
 ## 6. Pruebas y compilación
 
@@ -116,6 +125,7 @@ Pruebas del backend:
 
 - `test_api_contract.py` sustituye el predictor por un doble determinista. Comprueba contrato, JPG/PNG, contenido real, archivo vacío, exceso de 10 MB, discrepancia de formato y error interno. No prueba el modelo.
 - `test_checkpoint_inference.py` verifica el hash, carga el checkpoint real y ejecuta una inferencia sobre una imagen sintética creada en memoria. Prueba integración técnica, no desempeño ni exactitud.
+- `test_domain_guard.py` comprueba score, umbral, serialización y que obtener el embedding no altere los logits del modelo.
 
 Frontend:
 
@@ -194,6 +204,8 @@ TEST no reabrió la selección: el candidato activo había sido fijado previamen
 
 Con el umbral provisional `0.70`, 158/300 predicciones quedaron aceptadas, 140 fueron correctas y 18 incorrectas. La accuracy condicional fue `88.61 %` con cobertura `52.67 %`. No es una garantía para datos nuevos ni demuestra calibración.
 
+El filtro de dominio, construido sin TEST, aceptó 141/153 hojas de café de su porción de evaluación de VAL y rechazó los 200 negativos externos concretos del protocolo. Entre las hojas válidas rechazó 3 sanas, 1 de ácaro y 8 de roya. El resultado permite usarlo como barrera experimental, pero no como garantía de café/no café. Detalles en `reports/DOMAIN_GUARD_RESULTS.md`.
+
 ## 10. Despliegue público: preparado, no ejecutado
 
 ### Backend en Render
@@ -206,7 +218,7 @@ Start: uvicorn backend.main:app --host 0.0.0.0 --port $PORT
 Health: /health
 ```
 
-La ruta `models/mobilenet_finetuned_epoch6.pt` coincide con el archivo incluido en Git. Render requiere definir `CORS_ALLOWED_ORIGINS` con el dominio HTTPS real del frontend.
+Las rutas `models/mobilenet_finetuned_epoch6.pt` y `models/coffee_domain_guard.pt` coinciden con los archivos incluidos en Git. Render requiere definir `CORS_ALLOWED_ORIGINS` con el dominio HTTPS real del frontend.
 
 ### Frontend en Vercel
 
@@ -225,7 +237,7 @@ Git debe contener:
 - backend, frontend y scripts reproducibles;
 - manifiesto, reportes académicos y atribuciones;
 - tres imágenes atribuidas de la guía;
-- `models/mobilenet_finetuned_epoch6.pt` y ningún otro checkpoint;
+- `models/mobilenet_finetuned_epoch6.pt` y `models/coffee_domain_guard.pt`, sin otros checkpoints;
 - configuración de Render, Vercel y CI;
 - plantillas `.env` sin secretos.
 
@@ -244,7 +256,8 @@ Los archivos ignorados siguen siendo importantes localmente. No borres `data/raw
 - Solo existen tres salidas; no cubre otras enfermedades, deficiencias o daños.
 - No hay segmentación, localización de lesiones ni severidad.
 - Las puntuaciones softmax no son probabilidades calibradas.
-- El umbral `0.70` controla el mensaje de incertidumbre; no detecta hojas de otras especies ni objetos.
+- El umbral `0.70` controla el mensaje de incertidumbre del clasificador; no participa en el rechazo de dominio.
+- El filtro de similitud para café/no café es experimental: pasó un benchmark acotado, pero puede aceptar entradas desconocidas o rechazar hojas de café válidas.
 - La clase ácaro rojo tiene menor soporte y peor desempeño.
 - Falta evaluación externa con plantas, sesiones y sitios independientes.
 - La guía resume señales generales y no asigna una especie concreta de ácaro al dataset.
@@ -259,6 +272,7 @@ Los archivos ignorados siguen siendo importantes localmente. No borres `data/raw
 - `reports/ORIGINAL_ANNOTATION_COMPARISON.md`: anotaciones y conflictos.
 - `reports/RELIABILITY_AUDIT.md`: flujo web y errores de concurrencia.
 - `reports/V2_PREPROCESSING_RESULTS.md`: candidato v2 descartado.
+- `reports/DOMAIN_GUARD_RESULTS.md`: protocolo, resultados y límites del filtro de dominio.
 - `ATTRIBUTIONS.md`: licencias y fuentes de terceros.
 
 El código del proyecto todavía no tiene una licencia propia. Elegirla antes de abrir públicamente el repositorio sigue siendo una decisión de la persona autora.

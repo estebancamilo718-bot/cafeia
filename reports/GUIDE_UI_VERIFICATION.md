@@ -1,24 +1,38 @@
-# Verificación de la guía visual de CaféIA
+# Verificación de la interfaz de CaféIA
 
-> **Actualización de interfaz:** la navegación actual conserva “Analizar” y “Guía visual”. La antigua tercera sección “Sobre el modelo” se retiró de la página; sus cifras permanecen en `README.md`, `reports/FINAL_TEST_RESULTS.md` y la evidencia histórica siguiente.
+> **Comprobación 2026-10-18:** la revisión automatizada se repitió contra el backend con el filtro de dominio cargado. Además de los estados aceptado, incierto y desconexión, se envió una fotografía externa de un perro: la página mostró “No se pudo confirmar la hoja”, incluyó la instrucción de cargar una sola hoja de café, ocultó las puntuaciones de las tres clases y no expuso identificadores internos.
+
+> **Comprobación 2026-10-14:** se rediseñó la interfaz del analizador con una identidad visual más sobria, jerarquía tipográfica consistente, paneles de entrada/resultado alineados, estados de carga/error/resultado unificados y una guía educativa secundaria. La revisión automatizada en Edge produjo capturas reales a 390, 768 y 1440 px y verificó el flujo contra el backend activo.
+
+> **Actualización de interfaz:** la navegación actual conserva “Analizar” y “Guía de hojas”. La antigua tercera sección “Sobre el modelo” se retiró de la página; sus cifras permanecen en `README.md`, `reports/FINAL_TEST_RESULTS.md` y la evidencia histórica siguiente.
 
 > **Comprobación 2026-10-04:** las 5 pruebas del flujo frontend, TypeScript y `next build` finalizaron correctamente; el HTML local respondió 200, mostró “Agente IA para hojas de café” y no incluyó “Evaluación del prototipo” ni “Sobre el modelo”. Edge y el navegador integrado no estuvieron disponibles para una nueva inspección visual, por lo que las capturas y la tabulación manual siguen pendientes.
 
-**Fecha:** 2026-09-26
+**Fecha de la última comprobación:** 2026-10-18
 **URL local:** `http://localhost:3000`
 
 ## Comprobaciones realizadas
 
 | Comprobación | Resultado |
 |---|---|
-| Compilación de producción | `npm.cmd run build` finalizó correctamente con Next.js 16.3.5; TypeScript y las 3 páginas estáticas se generaron sin error |
+| Compilación de producción | `npm.cmd run build` finalizó correctamente con Next.js 16.3.5 y webpack; TypeScript y las páginas estáticas se generaron sin error |
+| Pruebas frontend | 11/11 verificaciones pasaron, incluidas concurrencia, consentimiento y validación de las respuestas clasificadas o fuera de dominio |
 | Frontend local | HTTP 200 en `/` |
 | Contenido inicial | El HTML incluye “Analiza una hoja de café” antes de la guía |
-| Navegación | El HTML incluye “Analizar”, “Guía de hojas” y “Sobre el modelo” con destinos internos |
-| Guía | El HTML incluye “Conoce las hojas de café” y no muestra cadenas `coffee___` |
+| Navegación | Incluye “Analizar” y “Guía de hojas”; la guía se oculta en la barra móvil para evitar cortes de texto, pero permanece disponible al desplazarse |
+| Guía | Incluye “Aprende a observar las hojas” y no muestra cadenas `coffee___` |
+| Diseño adaptable | La captura de 390 px muestra una columna; a 768 y 1440 px el analizador muestra dos columnas sin desbordamiento horizontal |
+| Estados | Se capturaron el estado inicial, resultado incierto, resultado aceptado y error de conexión |
+| Fuera de dominio | Se capturó el rechazo de una fotografía de perro; no se mostraron categorías ni puntuaciones de café |
+| Sustitución | La prueba reemplazó una imagen antes de analizar y confirmó que la interfaz mostró el archivo vigente |
+| Consentimiento inicial | El modal mostró la finalidad, la ausencia de almacenamiento y la ausencia de cookies publicitarias o analíticas |
+| Rechazo | “Continuar sin analizar” cerró el modal y mantuvo deshabilitado el selector de archivos |
+| Aceptación | “Aceptar y continuar” persistió la decisión versionada en `localStorage` y habilitó el selector |
+| Retirada | La gestión desde el pie de página volvió a bloquear el selector y eliminó la selección actual |
+| Encabezados de seguridad | Se comprobaron CSP, `nosniff`, `DENY` para iframes y permisos de cámara, micrófono y geolocalización deshabilitados |
 | Fotografías | Los tres recursos responden HTTP 200, `image/jpeg`, con tamaños 228.648, 212.178 y 313.519 bytes |
 | Contraste calculado | Texto principal verde/crema 11,53:1; texto secundario 6,83:1; terracota/crema 5,78:1; botón blanco/terracota 5,51:1; foco terracota/crema 5,78:1 |
-| API | `/health` respondió `status: ok`, modelo `mobilenet-v3-small-finetuned-epoch6`, época 6 y SHA-256 esperado |
+| API | `/health` respondió `status: ok`, modelo `mobilenet-v3-small-finetuned-epoch6`, época 6, hashes esperados del modelo y filtro, y `domain_guard_loaded: true` |
 | CORS local | El origen permitido `http://localhost:3000` recibió `access-control-allow-origin`; un origen ajeno no recibió ese encabezado |
 | Predicción real, estado orientativo | El ejemplo sano de TRAIN obtuvo puntuación máxima 0,846378 y `is_uncertain: false` |
 | Predicción real, estado incierto | El ejemplo de roya de TRAIN obtuvo puntuación máxima 0,513834 y `is_uncertain: true` |
@@ -41,17 +55,8 @@ Las predicciones anteriores son pruebas funcionales sobre ejemplos de TRAIN; no 
 - Estructura adaptable declarada: una columna por defecto, dos para el analizador desde 768 px y tres para la guía desde 1024 px.
 - Respeto de `prefers-reduced-motion`.
 
-## Limitación de esta sesión
+## Evidencia visual y alcance
 
-Se intentó abrir la aplicación mediante las superficies disponibles de Chrome, navegador integrado y Edge, pero las tres devolvieron `Browser is not available`. Por tanto, **no se afirma una inspección visual ni una prueba real de tabulación a 390, 768 y 1440 px**. Esas revisiones quedan pendientes en un navegador disponible. La compilación, la estructura adaptable del código, las respuestas HTTP y el flujo real del backend sí fueron comprobados.
+`scripts/verify_frontend.mjs` controló Edge en modo local, ajustó el viewport a 390, 768 y 1440 px, comprobó las tres pestañas del aviso, rechazo, aceptación y retirada, usó imágenes de VAL solo para comprobación local, realizó predicciones reales y guardó el resumen en `reports/web_ui_verification/browser_checks.json`. Las fotografías de VAL y las capturas PNG permanecen fuera de Git.
 
-## Revisión visual pendiente
-
-En un navegador con herramientas de desarrollo:
-
-1. abrir `http://localhost:3000`;
-2. comprobar a 390, 768 y 1440 px que no exista desplazamiento horizontal y que el analizador siga visible primero;
-3. recorrer con `Tab` la navegación, el selector, “Analizar hoja”, el enlace a la ficha, “Analizar otra fotografía” y los tres “Ver detalles”;
-4. cargar y reemplazar una imagen;
-5. usar el ejemplo `frontend/public/guide/roya-rocole-c10p27e2.jpg` para comprobar que “Resultado incierto” permanezca como título principal y que “Consultar las tres categorías” lleve a la guía;
-6. detener temporalmente el backend y confirmar el mensaje de conexión, luego reiniciarlo.
+La comprobación confirmó foco programático y nombres accesibles del selector. Sigue siendo recomendable que una persona recorra manualmente toda la página con `Tab` y un lector de pantalla antes de una publicación pública; la automatización no sustituye esa revisión humana.

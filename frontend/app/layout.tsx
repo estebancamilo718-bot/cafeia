@@ -3,7 +3,7 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "CaféIA | Análisis de hojas de café",
-  description: "Prototipo académico para clasificar tres condiciones en hojas de café.",
+  description: "Herramienta de apoyo visual para clasificar tres condiciones en hojas de café.",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {

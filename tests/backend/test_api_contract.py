@@ -14,13 +14,20 @@ class FakePredictor:
     """Doble determinista: prueba el contrato HTTP, no el modelo."""
 
     checkpoint_sha256 = "0" * 64
+    domain_guard_sha256 = "1" * 64
+    domain_guard_method = "fake_cosine_guard"
     model_id = "fake-predictor"
     classes = api.EXPECTED_CLASS_ORDER
     checkpoint = {"model": "mobilenet", "selected_candidate_epoch": 6}
+    domain_guard = type("FakeGuard", (), {"threshold": 0.65})()
 
     def predict(self, image: Image.Image) -> api.PredictionResponse:
         assert image.mode == "RGB"
         return api.PredictionResponse(
+            status="classified",
+            is_supported_image=True,
+            domain_score=0.91,
+            domain_threshold=0.65,
             category="coffee___healthy",
             category_label="Hoja sana",
             score=0.8,
@@ -34,6 +41,19 @@ class FakePredictor:
                 api.ClassScore(category="coffee___rust", label="Roya", score=0.1),
             ],
             is_uncertain=False,
+            uncertainty_threshold=api.UNCERTAINTY_THRESHOLD,
+        )
+
+
+class OutsideDomainPredictor(FakePredictor):
+    def predict(self, image: Image.Image) -> api.PredictionResponse:
+        return api.PredictionResponse(
+            status="outside_domain",
+            is_supported_image=False,
+            domain_score=0.31,
+            domain_threshold=0.65,
+            message=api.OUTSIDE_DOMAIN_MESSAGE,
+            is_uncertain=True,
             uncertainty_threshold=api.UNCERTAINTY_THRESHOLD,
         )
 
@@ -72,6 +92,10 @@ def test_health_contract_uses_injected_predictor(client: TestClient) -> None:
         "model": "mobilenet",
         "model_id": "fake-predictor",
         "checkpoint_sha256": "0" * 64,
+        "domain_guard_loaded": True,
+        "domain_guard_sha256": "1" * 64,
+        "domain_guard_method": "fake_cosine_guard",
+        "domain_threshold": 0.65,
         "selected_epoch": 6,
         "uncertainty_threshold": 0.7,
         "classes": api.EXPECTED_CLASS_ORDER,
@@ -87,12 +111,34 @@ def test_predict_contract_with_valid_jpeg(client: TestClient) -> None:
     assert response.status_code == 200
     payload = response.json()
     assert payload["category"] == "coffee___healthy"
+    assert payload["status"] == "classified"
+    assert payload["is_supported_image"] is True
+    assert payload["domain_score"] == 0.91
     assert payload["category_label"] == "Hoja sana"
     assert payload["score"] == 0.8
     assert payload["is_uncertain"] is False
     assert payload["uncertainty_threshold"] == 0.7
     assert [item["category"] for item in payload["scores"]] == api.EXPECTED_CLASS_ORDER
     assert sum(item["score"] for item in payload["scores"]) == pytest.approx(1.0)
+
+
+def test_outside_domain_response_does_not_expose_a_coffee_class(client: TestClient) -> None:
+    client.app.state.predictor = OutsideDomainPredictor()
+
+    response = client.post(
+        "/predict",
+        files={"file": ("perro.jpg", image_bytes("JPEG"), "image/jpeg")},
+    )
+
+    assert response.status_code == 200
+    payload = response.json()
+    assert payload["status"] == "outside_domain"
+    assert payload["is_supported_image"] is False
+    assert payload["message"] == api.OUTSIDE_DOMAIN_MESSAGE
+    assert payload["category"] is None
+    assert payload["category_label"] is None
+    assert payload["score"] is None
+    assert payload["scores"] == []
 
 
 @pytest.mark.parametrize(

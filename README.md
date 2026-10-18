@@ -1,10 +1,10 @@
 # CaféIA
 
-CaféIA es un prototipo académico web que clasifica fotografías de hojas de café en tres categorías: **hoja sana**, **roya** y **ácaro rojo**. El analizador usa un backend FastAPI, una interfaz Next.js y un MobileNetV3 Small ajustado sobre la versión limpia y documentada de RoCoLe.
+CaféIA es una aplicación web de apoyo visual que clasifica fotografías de hojas de café en tres categorías: **hoja sana**, **roya** y **ácaro rojo**. El analizador usa un backend FastAPI, una interfaz Next.js y un MobileNetV3 Small ajustado sobre la versión limpia y documentada de RoCoLe. No es un diagnóstico ni ofrece certeza absoluta.
 
 La aplicación conserva el analizador como función principal. La guía visual es educativa y utiliza tres ejemplos de TRAIN con anotación original verificada; no convierte la salida del modelo en un diagnóstico.
 
-La interfaz actual presenta dos destinos: **Analizar** y **Guía visual**. Las métricas académicas permanecen documentadas en este README y en `reports/`, sin ocupar una tercera sección en la página pública.
+La interfaz actual presenta dos destinos: **Analizar** y **Guía de hojas**. Las métricas académicas permanecen documentadas en este README y en `reports/`, sin ocupar una tercera sección en la página pública.
 
 ## Estado reproducible
 
@@ -13,9 +13,10 @@ La interfaz actual presenta dos destinos: **Analizar** y **Guía visual**. Las m
 - Orden de salidas: `coffee___healthy`, `coffee___red_spider_mite`, `coffee___rust`.
 - Preprocesamiento: orientación EXIF, RGB, redimensionamiento directo a 224×224, tensor y normalización ImageNet.
 - Umbral provisional de incertidumbre: `0.70`.
+- Filtro experimental de dominio: `models/coffee_domain_guard.pt`, SHA-256 `8060ef83e4a018d6a49e22fc5b59162f4ec6cbba90482e27d7896c79106d90e7`.
 - Manifiesto conservado: `data/processed/manifest.csv`, SHA-256 `1ea21d6b2b480b830065c5d4d1d90f531234cc2aa244d7bb98c5873363866dab`.
 
-El backend comprueba el hash y el orden de clases antes de atender solicitudes. El checkpoint se carga una vez durante el arranque y las fotografías recibidas se procesan en memoria, sin guardarlas.
+El backend comprueba los hashes, la compatibilidad del filtro y el orden de clases antes de atender solicitudes. Ambos artefactos se cargan una vez durante el arranque y las fotografías recibidas se procesan en memoria, sin guardarlas.
 
 ## Arquitectura
 
@@ -25,10 +26,19 @@ Navegador
        └─ POST /predict
             └─ backend/main.py (FastAPI)
                  ├─ src/common.py (arquitectura y preprocesamiento)
-                 └─ models/mobilenet_finetuned_epoch6.pt
+                 ├─ models/coffee_domain_guard.pt (barrera experimental)
+                 └─ models/mobilenet_finetuned_epoch6.pt (tres clases)
 ```
 
 Los scripts de preparación, entrenamiento y evaluación viven en `src/`. No se ejecutan al usar la aplicación web.
+
+## Consentimiento, privacidad y seguridad web
+
+Antes de habilitar el selector de fotografías, la interfaz solicita una aceptación explícita para enviar la imagen al backend configurado. Rechazar permite seguir consultando la página, pero mantiene bloqueados la carga y el análisis. La decisión puede revisarse o retirarse desde el pie de página; al retirarla se cancela cualquier solicitud y se elimina la selección actual de la interfaz.
+
+La decisión se conserva en `localStorage` bajo una clave versionada. CaféIA no instala cookies publicitarias ni de analítica. El backend valida el tipo, contenido y límite de 10 MB, procesa la fotografía en memoria y no la guarda.
+
+`frontend/next.config.ts` añade Content Security Policy, bloqueo de iframes, `nosniff`, política de referentes y permisos denegados para cámara, micrófono y geolocalización. `NEXT_PUBLIC_API_URL` debe estar definida durante la compilación de producción porque su origen se incorpora tanto al frontend como a `connect-src` de la CSP. Estas medidas reducen riesgos web comunes, pero no sustituyen HTTPS, revisión de dependencias ni supervisión operativa del despliegue.
 
 ## Ejecución local en Windows
 
@@ -52,6 +62,8 @@ Backend, en la primera terminal desde la raíz:
 $env:MODEL_PATH = "models/mobilenet_finetuned_epoch6.pt"
 $env:MODEL_SHA256 = "4ab4e52fc3d417fe5fb126ff1e5b346f080c55ffa80232cffd5d6e6622e46c94"
 $env:MODEL_ID = "mobilenet-v3-small-finetuned-epoch6"
+$env:DOMAIN_GUARD_PATH = "models/coffee_domain_guard.pt"
+$env:DOMAIN_GUARD_SHA256 = "8060ef83e4a018d6a49e22fc5b59162f4ec6cbba90482e27d7896c79106d90e7"
 $env:CORS_ALLOWED_ORIGINS = "http://localhost:3000,http://127.0.0.1:3000"
 & .\.venv\Scripts\python.exe -m uvicorn backend.main:app --host 127.0.0.1 --port 8000
 ```
@@ -80,7 +92,7 @@ npm.cmd run test:request-flow
 npm.cmd run build
 ```
 
-`tests/backend/test_api_contract.py` usa un predictor falso y no demuestra inferencia real. `tests/backend/test_checkpoint_inference.py` carga el checkpoint desplegable y ejecuta una inferencia real sobre una imagen sintética creada en memoria; comprueba integración, no exactitud. La CI reproduce estas comprobaciones sin dataset privado ni entrenamiento.
+`tests/backend/test_api_contract.py` usa un predictor falso y no demuestra inferencia real. `tests/backend/test_checkpoint_inference.py` carga el checkpoint y el filtro desplegables y ejecuta una inferencia real sobre una imagen sintética creada en memoria; comprueba integración, no exactitud. `tests/backend/test_domain_guard.py` verifica el cálculo de similitud, persistencia y equivalencia de logits. La CI reproduce estas comprobaciones sin dataset privado ni entrenamiento.
 
 La comprobación E2E local con fotografías reales se mantiene separada porque requiere `data/raw` y la evidencia original, ambos excluidos de Git. `src/verify_val_e2e.py` fija primero 15 imágenes de VAL sin cargar el modelo y después compara inferencia directa con una API HTTP real. Sus resultados están en [reports/VAL_E2E_INTEGRATION.md](reports/VAL_E2E_INTEGRATION.md); no son una nueva evaluación global ni consultan TEST.
 
@@ -101,9 +113,11 @@ El candidato se eligió antes de consultar TEST, por F1 macro de validación `0.
 
 Estas cifras describen exclusivamente ese conjunto. Las puntuaciones softmax no son probabilidades calibradas de acierto; `0.70` no detecta imágenes ajenas al café y no garantiza desempeño en fotografías nuevas.
 
+La barrera de dominio se calibró sin TEST. En su evaluación de desarrollo aceptó 141/153 hojas de café de una porción de VAL y rechazó 200/200 negativos externos concretos: hojas PlantVillage ajenas al café, perros, gatos y escenas/objetos. Estos resultados justifican su integración conservadora, pero no prueban rechazo universal. Véase [el informe del filtro](reports/DOMAIN_GUARD_RESULTS.md).
+
 ## Datos, modelos y Git
 
-Git incluye código, manifiesto, reportes, tres fotografías atribuidas de la guía y el único checkpoint necesario para desplegar. `.gitignore` excluye el dataset completo, `.venv`, `node_modules`, `.next`, descargas de procedencia, experimentos y checkpoints adicionales.
+Git incluye código, manifiesto, reportes, tres fotografías atribuidas de la guía, el checkpoint del clasificador y el artefacto del filtro necesarios para desplegar. `.gitignore` excluye el dataset completo, `.venv`, `node_modules`, `.next`, descargas de procedencia, experimentos y checkpoints adicionales.
 
 Los materiales locales excluidos siguen siendo evidencia académica y no deben eliminarse: `data/raw/`, `provenance/`, `experiments/` y los modelos de referencia. La atribución de RoCoLe y de las fotografías está en [ATTRIBUTIONS.md](ATTRIBUTIONS.md) y [reports/GUIDE_IMAGE_PROVENANCE.md](reports/GUIDE_IMAGE_PROVENANCE.md).
 
@@ -114,6 +128,7 @@ El repositorio está **preparado**, pero no se ha publicado la aplicación:
 - Render puede crear el backend desde `render.yaml`.
 - Vercel debe usar `frontend` como Root Directory y definir `NEXT_PUBLIC_API_URL`.
 - Render debe recibir `CORS_ALLOWED_ORIGINS` con el origen HTTPS exacto de Vercel.
+- Render carga y verifica tanto `MODEL_PATH`/`MODEL_SHA256` como `DOMAIN_GUARD_PATH`/`DOMAIN_GUARD_SHA256`.
 
 Las URLs de ejemplo no representan servicios activos. Después de un despliegue autorizado se debe comprobar `/health`, el hash del modelo, CORS, memoria y el flujo real desde el dominio asignado.
 
@@ -121,7 +136,7 @@ Las URLs de ejemplo no representan servicios activos. Después de un despliegue 
 
 - Solo distingue tres categorías y no estima severidad ni localiza lesiones.
 - Ácaro rojo es la clase más débil en la evaluación final.
-- No existe un mecanismo medido para rechazar otras especies, objetos o fotografías no utilizables.
+- El filtro experimental reduce algunos errores fuera de dominio, pero no garantiza reconocer todas las especies, objetos o fotografías no utilizables; también rechazó 12/153 hojas válidas en su comprobación de VAL.
 - RoCoLe representa un dominio limitado; falta comprobación externa con plantas, sitios y sesiones independientes.
 - CaféIA no sustituye la revisión de una persona experta.
 
@@ -133,6 +148,7 @@ Las URLs de ejemplo no representan servicios activos. Después de un despliegue 
 - [Auditoría de procedencia](reports/DATASET_PROVENANCE_AUDIT.md)
 - [Auditoría de confiabilidad web](reports/RELIABILITY_AUDIT.md)
 - [Resultado del experimento v2](reports/V2_PREPROCESSING_RESULTS.md)
+- [Filtro experimental de dominio](reports/DOMAIN_GUARD_RESULTS.md)
 
 ## Licencia
 

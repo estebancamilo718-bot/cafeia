@@ -10,21 +10,18 @@ import {
   useState,
 } from "react";
 
+import { PrivacyConsent } from "../components/privacy-consent";
 import { analysisFailureMessage, validateSelectedImage } from "../lib/analysis-input";
 import { LatestRequestCoordinator } from "../lib/latest-request";
+import { isPrediction, type Prediction } from "../lib/prediction";
+import {
+  canAnalyzeWithConsent,
+  parseStoredPrivacyConsent,
+  PRIVACY_CONSENT_STORAGE_KEY,
+  type PrivacyConsentChoice,
+} from "../lib/privacy-consent";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
-const PREDICTION_CATEGORIES = new Set([
-  "coffee___healthy",
-  "coffee___red_spider_mite",
-  "coffee___rust",
-]);
-const EXPECTED_LABELS: Record<string, string> = {
-  coffee___healthy: "Hoja sana",
-  coffee___red_spider_mite: "Ácaro rojo",
-  coffee___rust: "Roya",
-};
-
 const GUIDE_BY_CATEGORY: Record<string, string> = {
   coffee___healthy: "guia-sana",
   coffee___rust: "guia-roya",
@@ -39,7 +36,7 @@ const GUIDE_CARDS = [
     image: "/guide/hoja-sana-rocole-c10p12h1.jpg",
     alt: "Hoja de café verde fotografiada en campo, ejemplo de TRAIN anotado como sano en RoCoLe",
     description:
-      "En RoCoLe, esta fotografía está anotada como sana. Sirve para comparar la apariencia general con las otras dos categorías del prototipo.",
+      "En RoCoLe, esta fotografía está anotada como sana. Sirve para comparar la apariencia general con las otras dos categorías del clasificador.",
     signs: [
       "Tejido predominantemente verde y sin las señales habituales de roya o daño por ácaro descritas en esta guía.",
       "El color, el brillo y la forma pueden variar por edad, nutrición, luz y otras condiciones que CaféIA no distingue.",
@@ -85,21 +82,6 @@ const GUIDE_CARDS = [
   },
 ] as const;
 
-type ClassScore = {
-  category: string;
-  label: string;
-  score: number;
-};
-
-type Prediction = {
-  category: string;
-  category_label: string;
-  score: number;
-  scores: ClassScore[];
-  is_uncertain: boolean;
-  uncertainty_threshold: number;
-};
-
 function formatScore(value: number) {
   return value.toLocaleString("es-CO", {
     style: "percent",
@@ -116,61 +98,6 @@ function errorMessage(payload: unknown): string {
   return "No pudimos analizar la fotografía. Intenta de nuevo.";
 }
 
-function isPrediction(payload: unknown): payload is Prediction {
-  if (typeof payload !== "object" || payload === null) return false;
-  const candidate = payload as Partial<Prediction>;
-  if (
-    typeof candidate.category !== "string" ||
-    !PREDICTION_CATEGORIES.has(candidate.category) ||
-    typeof candidate.category_label !== "string" ||
-    typeof candidate.score !== "number" ||
-    !Number.isFinite(candidate.score) ||
-    candidate.score < 0 ||
-    candidate.score > 1 ||
-    typeof candidate.is_uncertain !== "boolean" ||
-    typeof candidate.uncertainty_threshold !== "number" ||
-    !Number.isFinite(candidate.uncertainty_threshold) ||
-    candidate.uncertainty_threshold !== 0.7 ||
-    !Array.isArray(candidate.scores) ||
-    candidate.scores.length !== PREDICTION_CATEGORIES.size
-  ) {
-    return false;
-  }
-
-  const returnedCategories = new Set<string>();
-  for (const item of candidate.scores) {
-    if (
-      typeof item !== "object" ||
-      item === null ||
-      typeof item.category !== "string" ||
-      !PREDICTION_CATEGORIES.has(item.category) ||
-      typeof item.label !== "string" ||
-      item.label !== EXPECTED_LABELS[item.category] ||
-      typeof item.score !== "number" ||
-      !Number.isFinite(item.score) ||
-      item.score < 0 ||
-      item.score > 1
-    ) {
-      return false;
-    }
-    returnedCategories.add(item.category);
-  }
-  const selectedScore = candidate.scores.find(
-    (item) => item.category === candidate.category,
-  )?.score;
-  const scoreSum = candidate.scores.reduce((sum, item) => sum + item.score, 0);
-  const maximumScore = Math.max(...candidate.scores.map((item) => item.score));
-  return (
-    returnedCategories.size === PREDICTION_CATEGORIES.size &&
-    candidate.category_label === EXPECTED_LABELS[candidate.category] &&
-    selectedScore !== undefined &&
-    Math.abs(candidate.score - selectedScore) <= 1e-7 &&
-    Math.abs(candidate.score - maximumScore) <= 1e-7 &&
-    Math.abs(scoreSum - 1) <= 1e-5 &&
-    candidate.is_uncertain === (candidate.score < candidate.uncertainty_threshold)
-  );
-}
-
 export default function Home() {
   const inputRef = useRef<HTMLInputElement>(null);
   const requestCoordinatorRef = useRef(new LatestRequestCoordinator());
@@ -180,9 +107,12 @@ export default function Home() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
+  const [privacyChoice, setPrivacyChoice] = useState<PrivacyConsentChoice>(null);
+  const [privacyDialogOpen, setPrivacyDialogOpen] = useState(false);
+  const consentAccepted = canAnalyzeWithConsent(privacyChoice);
 
   const sortedScores = useMemo(
-    () => result?.scores.slice().sort((a, b) => b.score - a.score) ?? [],
+    () => result?.status === "outside_domain" ? [] : result?.scores.slice().sort((a, b) => b.score - a.score) ?? [],
     [result],
   );
 
@@ -195,6 +125,39 @@ export default function Home() {
   useEffect(() => {
     return () => requestCoordinatorRef.current.cancel();
   }, []);
+
+  useEffect(() => {
+    let storedChoice: PrivacyConsentChoice = null;
+    try {
+      storedChoice = parseStoredPrivacyConsent(
+        window.localStorage.getItem(PRIVACY_CONSENT_STORAGE_KEY),
+      );
+    } catch {
+      // La aplicación sigue funcionando si el navegador bloquea localStorage.
+    }
+    setPrivacyChoice(storedChoice);
+    if (storedChoice === null) setPrivacyDialogOpen(true);
+  }, []);
+
+  function savePrivacyChoice(choice: Exclude<PrivacyConsentChoice, null>) {
+    try {
+      window.localStorage.setItem(PRIVACY_CONSENT_STORAGE_KEY, choice);
+    } catch {
+      // La decisión permanece durante la sesión aunque no pueda persistirse.
+    }
+    setPrivacyChoice(choice);
+    setPrivacyDialogOpen(false);
+  }
+
+  function declinePrivacyConsent() {
+    reset();
+    savePrivacyChoice("declined");
+  }
+
+  function acceptPrivacyConsent() {
+    savePrivacyChoice("accepted");
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  }
 
   function reset(focusInput = false) {
     requestCoordinatorRef.current.replaceSelection();
@@ -211,6 +174,11 @@ export default function Home() {
   }
 
   function useSelectedFile(selected: File | null) {
+    if (!consentAccepted) {
+      if (inputRef.current) inputRef.current.value = "";
+      setPrivacyDialogOpen(true);
+      return;
+    }
     requestCoordinatorRef.current.replaceSelection();
     setLoading(false);
     setError(null);
@@ -250,6 +218,10 @@ export default function Home() {
 
   async function analyze(event: FormEvent) {
     event.preventDefault();
+    if (!consentAccepted) {
+      setPrivacyDialogOpen(true);
+      return;
+    }
     if (!file) return;
 
     const requestTicket = requestCoordinatorRef.current.begin();
@@ -285,7 +257,9 @@ export default function Home() {
     }
   }
 
-  const relatedGuideId = result ? GUIDE_BY_CATEGORY[result.category] : undefined;
+  const relatedGuideId = result && result.status !== "outside_domain"
+    ? GUIDE_BY_CATEGORY[result.category]
+    : undefined;
 
   return (
     <>
@@ -296,68 +270,105 @@ export default function Home() {
         Ir al análisis
       </a>
 
-      <header className="sticky top-0 z-40 border-b border-[#163f31]/12 bg-[#fffdf6]/92 shadow-[0_1px_18px_rgba(22,63,49,0.04)] backdrop-blur-md">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-x-4 gap-y-2 px-4 py-2.5 sm:px-6 lg:px-8">
-          <a href="#analisis" className="flex items-center gap-2.5 rounded-md focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#9d4e34]" aria-label="CaféIA, ir al analizador">
-            <span className="grid h-9 w-9 place-items-center rounded-full bg-[#163f31]" aria-hidden="true">
-              <span className="leaf-mark scale-[0.42]" />
+      <header className="site-header sticky top-0 z-40">
+        <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+          <a href="#analisis" className="brand-link" aria-label="CaféIA, ir al analizador">
+            <span className="brand-mark" aria-hidden="true">
+              <span className="leaf-mark" />
             </span>
             <span>
-              <span className="block text-xl leading-none font-black tracking-[-0.04em] text-[#163f31]">CaféIA</span>
-              <span className="mt-0.5 hidden text-[0.65rem] font-bold tracking-wide text-[#60756d] sm:block">Asistente para hojas de café</span>
+              <span className="block text-[1.35rem] leading-none font-black tracking-[-0.045em] text-[#11382b]">CaféIA</span>
+              <span className="mt-1 hidden text-[0.64rem] leading-none font-bold tracking-[0.08em] text-[#687a73] uppercase sm:block">Asistente visual de café</span>
             </span>
           </a>
-          <nav aria-label="Navegación principal" className="order-3 flex w-full items-center gap-1 overflow-x-auto pb-0.5 sm:order-2 sm:w-auto sm:pb-0">
-            <a className="nav-link" href="#analisis">Analizar</a>
-            <a className="nav-link" href="#guia">Guía visual</a>
-          </nav>
-          <span className="order-2 rounded-full bg-[#dbe5d4] px-3 py-1.5 text-[0.65rem] font-bold tracking-wide text-[#163f31] uppercase sm:order-3 sm:text-xs">
-            Prototipo académico
-          </span>
+
+          <div className="flex items-center gap-2 sm:gap-5">
+            <nav aria-label="Navegación principal" className="flex items-center gap-1">
+              <a className="nav-link" href="#analisis">Analizar</a>
+              <a className="nav-link mobile-hidden-nav" href="#guia">Guía de hojas</a>
+            </nav>
+            <span className="status-label">
+              <span className="status-dot" aria-hidden="true" />
+              <span className="hidden min-[430px]:inline">Sistema de apoyo visual</span>
+              <span className="min-[430px]:hidden">Apoyo visual</span>
+            </span>
+          </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl px-4 py-7 sm:px-6 sm:py-9 lg:px-8 lg:py-10">
+      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
         <section id="analisis" aria-labelledby="analysis-title" className="scroll-mt-28 sm:scroll-mt-20">
-          <div className="analysis-intro mb-6 overflow-hidden rounded-3xl border border-[#163f31]/10 px-5 py-5 sm:mb-8 sm:px-7 sm:py-6">
-            <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-end">
+          <div className="analysis-intro mb-6 px-1 py-2 sm:mb-8 sm:px-0 sm:py-3">
+            <div className="grid items-end gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
               <div className="max-w-3xl">
-                <p className="text-xs font-extrabold tracking-[0.18em] text-[#9d4e34] uppercase">Agente IA para hojas de café</p>
-                <h1 id="analysis-title" className="mt-2 text-3xl leading-tight font-black tracking-[-0.045em] text-[#163f31] sm:text-4xl">
+                <p className="eyebrow">Análisis asistido por inteligencia artificial</p>
+                <h1 id="analysis-title" className="mt-2 text-[2.15rem] leading-[1.04] font-black tracking-[-0.05em] text-[#11382b] sm:text-[2.75rem]">
                   Analiza una hoja de café
                 </h1>
-                <p className="mt-3 max-w-2xl text-sm leading-6 text-[#455f55] sm:text-base">
-                  Sube una fotografía clara de una sola hoja. CaféIA la compara de forma orientativa con hoja sana, roya y daño por ácaro rojo.
+                <p className="mt-3 max-w-2xl text-[0.95rem] leading-6 text-[#52655d] sm:text-base">
+                  Sube una fotografía clara de una sola hoja. CaféIA compara sus patrones con tres categorías del conjunto RoCoLe y entrega un resultado orientativo.
                 </p>
               </div>
-              <p className="w-fit shrink-0 rounded-full border border-[#163f31]/12 bg-[#fffdf6]/80 px-3 py-2 text-xs font-extrabold text-[#52675f]">
-                3 categorías · Resultado orientativo
-              </p>
+              <div className="trust-row" aria-label="Características del análisis">
+                <span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.9 8.3 7 10 4.1-1.7 7-5.4 7-10V6l-7-3Z"/><path d="m9.5 12 1.6 1.6 3.7-4"/></svg>
+                  La foto no se almacena
+                </span>
+                <span>
+                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="m4 15 4.5-4.5 3 3L14 11l6 6"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>
+                  JPG o PNG · máx. 10 MB
+                </span>
+              </div>
             </div>
           </div>
 
-          <div data-analysis-grid className="grid items-start gap-5 md:grid-cols-2 lg:gap-7">
-            <section aria-labelledby="upload-title" className="tool-card rounded-3xl border border-[#163f31]/12 bg-[#fffdf6] p-4 sm:p-6">
-              <div className="mb-4 flex items-start justify-between gap-4">
+          <div data-analysis-grid className="analysis-grid grid items-stretch gap-5 md:grid-cols-2 lg:gap-6">
+            <section aria-labelledby="upload-title" className="tool-card flex flex-col p-4 sm:p-6">
+              <div className="section-heading">
+                <span className="step-number" aria-hidden="true">01</span>
                 <div>
-                  <p className="text-xs font-extrabold tracking-[0.14em] text-[#9d4e34] uppercase">Paso 1</p>
-                  <h2 id="upload-title" className="mt-1 text-xl font-black text-[#163f31]">Selecciona una fotografía</h2>
+                  <p className="section-kicker">Fotografía de entrada</p>
+                  <h2 id="upload-title" className="mt-0.5 text-xl font-extrabold tracking-[-0.02em] text-[#11382b]">Selecciona la hoja</h2>
                 </div>
-                <span className="shrink-0 rounded-lg bg-[#f6f0df] px-2.5 py-1 text-xs font-bold text-[#52675f]">JPG o PNG</span>
               </div>
 
-              <form onSubmit={analyze} className="space-y-4">
+              <form onSubmit={analyze} className="mt-5 flex flex-1 flex-col gap-4">
                 <p id="upload-help" className="sr-only">
                   Archivos JPG o PNG de hasta 10 MB. Usa buena luz y una hoja enfocada.
                 </p>
+
+                {consentAccepted ? (
+                  <div className="consent-inline-status" role="status">
+                    <span className="consent-inline-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.6 2.9 8.3 7 10 4.1-1.7 7-5.4 7-10V6l-7-3Z"/><path d="m9.5 12 1.6 1.6 3.7-4"/></svg>
+                    </span>
+                    <p><strong>Consentimiento activo.</strong> La fotografía se procesará sin almacenarse.</p>
+                    <button type="button" onClick={() => setPrivacyDialogOpen(true)}>Revisar</button>
+                  </div>
+                ) : (
+                  <div className="consent-gate" role="status">
+                    <span className="consent-gate-icon" aria-hidden="true">
+                      <svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.6 2.9 8.3 7 10 4.1-1.7 7-5.4 7-10V6l-7-3Z"/></svg>
+                    </span>
+                    <div>
+                      <strong>Autoriza el procesamiento de la imagen</strong>
+                      <p>Debes aceptar antes de seleccionar y enviar una fotografía.</p>
+                    </div>
+                    <button type="button" onClick={() => setPrivacyDialogOpen(true)}>Revisar privacidad</button>
+                  </div>
+                )}
+
                 <label
                   htmlFor="leaf-photo"
                   onDragEnter={(event) => handleDrag(event, true)}
                   onDragOver={(event) => handleDrag(event, true)}
                   onDragLeave={(event) => handleDrag(event, false)}
                   onDrop={handleDrop}
-                  className={`relative block min-h-64 cursor-pointer overflow-hidden rounded-2xl border-2 border-dashed bg-[#f9f5e9] transition-colors focus-within:ring-3 focus-within:ring-[#9d4e34] focus-within:ring-offset-2 ${
-                    dragActive ? "border-[#9d4e34] bg-[#f3e6d7]" : "border-[#163f31]/30 hover:border-[#163f31]/60"
+                  aria-disabled={!consentAccepted}
+                  className={`upload-zone relative block min-h-64 overflow-hidden transition-all focus-within:ring-3 focus-within:ring-[#285646] focus-within:ring-offset-2 ${
+                    consentAccepted ? "cursor-pointer" : "is-disabled cursor-not-allowed"
+                  } ${
+                    dragActive ? "is-dragging" : ""
                   }`}
                 >
                   <input
@@ -368,98 +379,158 @@ export default function Home() {
                     aria-label={file ? "Reemplazar fotografía de la hoja" : "Seleccionar fotografía de una hoja de café"}
                     aria-describedby="upload-help"
                     accept=".jpg,.jpeg,.png,image/jpeg,image/png"
+                    disabled={!consentAccepted}
                     onChange={selectFile}
                   />
 
                   {previewUrl ? (
-                    <div>
+                    <div className="relative">
                       <img
                         src={previewUrl}
                         alt="Vista previa de la hoja seleccionada"
                         className="h-64 w-full object-cover sm:h-72"
                       />
-                      <div className="flex items-center justify-between gap-3 border-t border-[#163f31]/10 bg-[#fffdf6] px-4 py-3">
-                        <span className="min-w-0 truncate text-sm font-bold text-[#163f31]">{file?.name}</span>
-                        <span className="shrink-0 text-xs font-extrabold text-[#9d4e34]">Reemplazar</span>
+                      <div className="absolute inset-x-3 bottom-3 flex items-center justify-between gap-3 rounded-xl bg-[#0d2c22]/88 px-3.5 py-3 text-white shadow-lg backdrop-blur-sm">
+                        <span className="min-w-0 truncate text-sm font-semibold">{file?.name}</span>
+                        <span className="inline-flex shrink-0 items-center gap-1.5 text-xs font-bold">
+                          <svg className="h-4 w-4 fill-none stroke-current stroke-[1.8]" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 7h4l1.5-2h5L16 7h4v12H4z"/><circle cx="12" cy="13" r="3.5"/></svg>
+                          Reemplazar
+                        </span>
                       </div>
                     </div>
                   ) : (
                     <div className="grid min-h-64 place-items-center px-6 py-8 text-center sm:min-h-72">
-                      <div>
-                        <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-[#dbe5d4] text-2xl font-light text-[#163f31]" aria-hidden="true">+</span>
-                        <p className="mt-4 font-extrabold text-[#163f31]">Selecciona o arrastra una imagen</p>
-                        <p className="mt-1 text-sm leading-5 text-[#52675f]">Máximo 10 MB. Usa buena luz y una hoja enfocada.</p>
+                      <div className="max-w-xs">
+                        <svg className="mx-auto h-12 w-12 fill-none stroke-[#285646] stroke-[1.45]" viewBox="0 0 48 48" aria-hidden="true">
+                          <rect x="5" y="7" width="38" height="34" rx="7" />
+                          <circle cx="31.5" cy="18" r="4" />
+                          <path d="m7 34 9.5-10 7 7 5-5 12 12" />
+                        </svg>
+                        <p className="mt-4 text-base font-extrabold text-[#11382b]">Arrastra una imagen aquí</p>
+                        <p className="mt-1.5 text-sm leading-5 text-[#667871]">o haz clic para buscarla en tu equipo</p>
+                        <span className="mt-4 inline-flex rounded-md border border-[#c7d2cc] bg-white px-3 py-1.5 text-xs font-bold text-[#285646] shadow-sm">Seleccionar archivo</span>
                       </div>
                     </div>
                   )}
                 </label>
 
-                <aside aria-labelledby="photo-tips-title" className="rounded-xl bg-[#edf3e9] px-4 py-3">
-                  <h3 id="photo-tips-title" className="text-sm font-extrabold text-[#163f31]">Para una foto más útil</h3>
-                  <ul className="mt-1 grid gap-x-4 gap-y-1 text-sm leading-5 text-[#455f55] sm:grid-cols-2">
-                    <li>• Enfoca una sola hoja completa.</li>
-                    <li>• Usa luz pareja, sin filtros.</li>
-                    <li>• Evita dedos y fondos dominantes.</li>
-                    <li>• Fotografía haz y envés por separado.</li>
+                <aside aria-labelledby="photo-tips-title" className="photo-guidance">
+                  <div className="flex items-center gap-2">
+                    <svg className="h-4 w-4 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
+                    <h3 id="photo-tips-title" className="text-sm font-extrabold">Para obtener una imagen más útil</h3>
+                  </div>
+                  <ul className="mt-2 grid gap-x-4 gap-y-1.5 text-sm leading-5 text-[#52655d] sm:grid-cols-2">
+                    <li>Una sola hoja completa</li>
+                    <li>Luz uniforme y sin filtros</li>
+                    <li>Imagen enfocada</li>
+                    <li>Haz y envés por separado</li>
                   </ul>
                 </aside>
 
                 {error && (
-                  <div role="alert" className="rounded-xl border border-[#a45136]/30 bg-[#f8e9e2] px-4 py-3 text-sm leading-5 text-[#7b3825]">
-                    <span className="font-extrabold">No se pudo completar el análisis.</span> {error}
+                  <div role="alert" className="error-alert">
+                    <svg className="mt-0.5 h-5 w-5 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></svg>
+                    <p><span className="font-extrabold">No se pudo completar el análisis.</span> {error}</p>
                   </div>
                 )}
 
                 <button
                   type="submit"
-                  disabled={!file || loading}
-                  className="w-full rounded-xl bg-[#a45136] px-5 py-3.5 font-extrabold text-white shadow-[0_8px_20px_rgba(119,53,34,0.18)] transition-colors hover:bg-[#873f2a] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#9d4e34] disabled:cursor-not-allowed disabled:bg-[#b9aaa3] disabled:text-[#fffdf6] disabled:shadow-none"
+                  disabled={!file || loading || !consentAccepted}
+                  className="primary-button mt-auto"
                 >
-                  {loading ? "Analizando fotografía…" : "Analizar hoja"}
+                  <span>{loading ? "Analizando fotografía…" : "Analizar hoja"}</span>
+                  {!loading && <svg className="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>}
                 </button>
               </form>
             </section>
 
-            <section aria-labelledby="result-title" aria-live="polite" aria-busy={loading} className="tool-card rounded-3xl border border-[#163f31]/12 bg-[#fffdf6] p-4 sm:p-6">
-              <p className="text-xs font-extrabold tracking-[0.14em] text-[#9d4e34] uppercase">Paso 2</p>
+            <section aria-labelledby="result-title" aria-live="polite" aria-busy={loading} className="tool-card flex flex-col p-4 sm:p-6">
+              <div className="section-heading">
+                <span className="step-number" aria-hidden="true">02</span>
+                <div>
+                  <p className="section-kicker">Lectura del modelo</p>
+                  <p className="mt-0.5 text-xl font-extrabold tracking-[-0.02em] text-[#11382b]">Resultado del análisis</p>
+                </div>
+              </div>
 
               {loading ? (
-                <div className="grid min-h-80 place-items-center py-8 text-center">
-                  <div>
-                    <span className="mx-auto block h-3 w-3 rounded-full bg-[#a45136]" aria-hidden="true" />
-                    <h2 id="result-title" className="mt-5 text-2xl font-black text-[#163f31]">Analizando la fotografía</h2>
-                    <p className="mt-2 text-sm leading-6 text-[#52675f]">El modelo está calculando las puntuaciones de las tres clases.</p>
-                    <p className="mt-2 text-xs leading-5 text-[#52675f]">Puedes reemplazar la fotografía; esta solicitud se cancelará.</p>
+                <div className="result-stage">
+                  <div className="max-w-sm text-center">
+                    <span className="analysis-loader mx-auto" aria-hidden="true" />
+                    <h2 id="result-title" className="mt-6 text-2xl font-black tracking-[-0.03em] text-[#11382b]">Analizando la fotografía</h2>
+                    <p className="mt-2 text-sm leading-6 text-[#667871]">Estamos comparando la imagen con los patrones de las tres categorías.</p>
+                    <p className="mt-3 text-xs leading-5 text-[#71827b]">Si reemplazas la fotografía, esta solicitud se cancelará.</p>
+                  </div>
+                </div>
+              ) : result?.status === "outside_domain" ? (
+                <div className="mt-5">
+                  <div className="result-summary is-uncertain">
+                    <div className="result-summary__status">
+                      <span className="result-status-icon" aria-hidden="true">!</span>
+                      <span>Imagen fuera del alcance</span>
+                    </div>
+                    <h2 id="result-title" className="mt-4 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
+                      No se pudo confirmar la hoja
+                    </h2>
+                    <p className="mt-3 text-sm leading-6 text-[#52655d]">{result.message}</p>
+                    <p className="mt-4 border-t border-[#b98927]/20 pt-3 text-sm leading-5 text-[#6b511b]">
+                      No mostramos una categoría ni puntuaciones porque la imagen no pasó el filtro experimental de dominio. El filtro reduce errores evidentes, pero no reconoce todos los objetos ni garantiza que una imagen aceptada sea café.
+                    </p>
+                  </div>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <button type="button" onClick={() => reset(true)} className="secondary-button">
+                      Cargar otra fotografía
+                    </button>
+                    <a href="#guia" className="text-button">
+                      Consultar las tres categorías
+                      <svg className="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
+                    </a>
                   </div>
                 </div>
               ) : result ? (
-                <div className="mt-1">
-                  <div className={`rounded-2xl border p-4 ${result.is_uncertain ? "border-[#d0a24c]/60 bg-[#fbf4df]" : "border-[#163f31]/15 bg-[#edf3e9]"}`}>
-                    <h2 id="result-title" className="text-2xl font-black tracking-[-0.025em] text-[#163f31] sm:text-3xl">
+                <div className="mt-5">
+                  <div className={`result-summary ${result.is_uncertain ? "is-uncertain" : "is-accepted"}`}>
+                    <div className="result-summary__status">
+                      <span className="result-status-icon" aria-hidden="true">
+                        {result.is_uncertain ? "?" : "✓"}
+                      </span>
+                      <span>{result.is_uncertain ? "Revisión recomendada" : "Análisis completado"}</span>
+                    </div>
+                    <h2 id="result-title" className="mt-4 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
                       {result.is_uncertain
                         ? "Resultado incierto"
                         : `Clasificación orientativa: ${result.category_label}`}
                     </h2>
                     {result.is_uncertain && (
-                      <p className="mt-2 text-sm font-bold text-[#455f55]">
+                      <p className="mt-2 text-sm font-bold text-[#52655d]">
                         Categoría más probable: {result.category_label}
                       </p>
                     )}
-                    <p className="mt-1 text-3xl font-black text-[#a45136]">{formatScore(result.score)}</p>
+                    <div className="mt-4 flex items-end justify-between gap-4 border-t border-current/10 pt-4">
+                      <div>
+                        <p className="text-[0.65rem] font-extrabold tracking-[0.12em] text-[#687a73] uppercase">Puntuación mayor</p>
+                        <p className="mt-1 text-3xl leading-none font-black tracking-[-0.04em] text-[#a75236]">{formatScore(result.score)}</p>
+                      </div>
+                      <span className="text-right text-xs leading-4 text-[#71827b]">Umbral provisional<br />{formatScore(result.uncertainty_threshold)}</span>
+                    </div>
                     {result.is_uncertain && (
-                      <p className="mt-2 text-sm leading-5 text-[#6b511b]">
+                      <p className="mt-4 border-t border-[#b98927]/20 pt-3 text-sm leading-5 text-[#6b511b]">
                         La puntuación mayor no alcanzó el umbral provisional de {formatScore(result.uncertainty_threshold)}. Prueba otra foto o solicita revisión humana.
                       </p>
                     )}
                   </div>
 
-                  <h3 className="mt-6 text-sm font-extrabold text-[#163f31]">Puntuaciones por clase</h3>
-                  <div className="mt-3 space-y-4">
+                  <div className="mt-6 flex items-center justify-between gap-3">
+                    <h3 className="text-sm font-extrabold text-[#11382b]">Puntuaciones por clase</h3>
+                    <span className="text-xs text-[#71827b]">Suma total: 100 %</span>
+                  </div>
+                  <div className="mt-3 space-y-3.5">
                     {sortedScores.map((item) => (
                       <div key={item.category}>
                         <div className="mb-1.5 flex items-center justify-between gap-4 text-sm">
-                          <span className="font-bold text-[#344f45]">{item.label}</span>
-                          <span className="font-black text-[#163f31]">{formatScore(item.score)}</span>
+                          <span className="font-semibold text-[#40564e]">{item.label}</span>
+                          <span className="font-extrabold tabular-nums text-[#11382b]">{formatScore(item.score)}</span>
                         </div>
                         <div
                           role="progressbar"
@@ -467,99 +538,106 @@ export default function Home() {
                           aria-valuemin={0}
                           aria-valuemax={100}
                           aria-valuenow={Math.round(item.score * 100)}
-                          className="h-2.5 overflow-hidden rounded-full bg-[#dbe5d4]"
+                          className="h-2 overflow-hidden rounded-full bg-[#e4e9e6]"
                         >
-                          <div className="h-full rounded-full bg-[#a45136]" style={{ width: `${Math.max(1, item.score * 100)}%` }} />
+                          <div className="score-bar h-full rounded-full" style={{ width: `${Math.max(1, item.score * 100)}%` }} />
                         </div>
                       </div>
                     ))}
                   </div>
 
                   {!result.is_uncertain && (
-                    <p className="mt-5 rounded-xl bg-[#edf3e9] px-4 py-3 text-sm leading-5 text-[#344f45]">
+                    <p className="mt-5 border-l-2 border-[#55806f] bg-[#f2f6f3] px-4 py-3 text-sm leading-5 text-[#40564e]">
                       Este resultado es orientativo. Si observas daños o síntomas, solicita revisión de una persona experta.
                     </p>
                   )}
 
-                  <a
-                    href={result.is_uncertain || !relatedGuideId ? "#guia" : `#${relatedGuideId}`}
-                    className="mt-4 inline-flex min-h-11 items-center rounded-lg font-extrabold text-[#7b3825] underline decoration-2 underline-offset-4 focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#9d4e34]"
-                  >
-                    {result.is_uncertain ? "Consultar las tres categorías" : `Ver la ficha de ${result.category_label.toLocaleLowerCase("es-CO")}`}
-                  </a>
-
-                  <button
-                    type="button"
-                    onClick={() => reset(true)}
-                    className="mt-4 w-full rounded-xl border-2 border-[#163f31] px-5 py-3 font-extrabold text-[#163f31] transition-colors hover:bg-[#163f31] hover:text-white focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#9d4e34]"
-                  >
-                    Analizar otra fotografía
-                  </button>
+                  <div className="mt-5 grid gap-3 sm:grid-cols-2">
+                    <button type="button" onClick={() => reset(true)} className="secondary-button">
+                      Analizar otra fotografía
+                    </button>
+                    <a href={result.is_uncertain || !relatedGuideId ? "#guia" : `#${relatedGuideId}`} className="text-button">
+                      {result.is_uncertain ? "Consultar categorías" : `Ver ficha de ${result.category_label.toLocaleLowerCase("es-CO")}`}
+                      <svg className="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
+                    </a>
+                  </div>
                 </div>
               ) : error ? (
-                <div className="grid min-h-80 place-items-center py-8 text-center">
-                  <div>
-                    <h2 id="result-title" className="text-2xl font-black text-[#7b3825]">Análisis no disponible</h2>
-                    <p className="mt-2 max-w-sm text-sm leading-6 text-[#52675f]">Revisa el mensaje junto al selector y vuelve a intentarlo.</p>
+                <div className="result-stage">
+                  <div className="max-w-sm text-center">
+                    <span className="empty-state-icon is-error" aria-hidden="true">!</span>
+                    <h2 id="result-title" className="mt-5 text-2xl font-black tracking-[-0.03em] text-[#7b3825]">Análisis no disponible</h2>
+                    <p className="mt-2 text-sm leading-6 text-[#667871]">Revisa el mensaje junto al selector y vuelve a intentarlo.</p>
                   </div>
                 </div>
               ) : (
-                <div className="grid min-h-80 place-items-center py-8 text-center">
-                  <div>
-                    <span className="mx-auto block h-px w-14 bg-[#d0a24c]" aria-hidden="true" />
-                    <h2 id="result-title" className="mt-5 text-2xl font-black text-[#163f31]">Aquí verás el resultado</h2>
-                    <p className="mt-2 max-w-sm text-sm leading-6 text-[#52675f]">
-                      Selecciona una fotografía y pulsa “Analizar hoja” para obtener las tres puntuaciones.
+                <div className="result-stage">
+                  <div className="max-w-sm text-center">
+                    <span className="empty-state-icon" aria-hidden="true">
+                      <svg className="h-7 w-7 fill-none stroke-current stroke-[1.7]" viewBox="0 0 24 24"><path d="M4 5h16v14H4z"/><path d="m4 15 4.5-4.5 3 3L14 11l6 6"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>
+                    </span>
+                    <h2 id="result-title" className="mt-5 text-2xl font-black tracking-[-0.03em] text-[#11382b]">Tu resultado aparecerá aquí</h2>
+                    <p className="mt-2 text-sm leading-6 text-[#667871]">
+                      Selecciona una fotografía y ejecuta el análisis para ver la categoría más probable y sus puntuaciones.
                     </p>
                   </div>
                 </div>
               )}
 
-              <p className="mt-5 border-t border-[#163f31]/10 pt-4 text-xs leading-5 text-[#52675f]">
-                Las puntuaciones no son probabilidades calibradas de acierto. CaféIA solo distingue hoja sana, roya y ácaro rojo; no comprueba si la fotografía pertenece a una hoja de café ni sustituye una evaluación experta.
-              </p>
+              <div className="model-note mt-auto">
+                <svg className="mt-0.5 h-4 w-4 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
+                <p>Las puntuaciones no son probabilidades calibradas de acierto. CaféIA solo distingue hoja sana, roya y ácaro rojo. El filtro previo de dominio es experimental y no garantiza que toda imagen aceptada corresponda a una hoja de café.</p>
+              </div>
             </section>
           </div>
         </section>
 
-        <section id="guia" aria-labelledby="guide-title" className="guide-section mt-14 scroll-mt-28 rounded-[2rem] px-4 py-8 sm:mt-16 sm:scroll-mt-20 sm:px-7 sm:py-10">
-          <div className="max-w-3xl">
-            <p className="text-xs font-extrabold tracking-[0.16em] text-[#9d4e34] uppercase">Guía visual educativa</p>
-            <h2 id="guide-title" className="mt-2 text-3xl font-black tracking-[-0.04em] text-[#163f31] sm:text-4xl">
-              Conoce las hojas de café
-            </h2>
-            <p className="mt-3 text-sm leading-6 text-[#455f55] sm:text-base">
-              Compara señales habituales y aprende qué observa el prototipo. Las fotografías son ejemplos reales de TRAIN con anotación original verificada; no son diagnósticos ni muestran todas las variaciones posibles.
+        <section id="guia" aria-labelledby="guide-title" className="guide-section mt-16 scroll-mt-28 py-10 sm:mt-20 sm:scroll-mt-20 sm:py-14">
+          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.72fr)_minmax(20rem,0.28fr)] lg:items-end">
+            <div className="max-w-3xl">
+              <p className="eyebrow">Referencia educativa</p>
+              <h2 id="guide-title" className="mt-2 text-3xl font-black tracking-[-0.045em] text-[#11382b] sm:text-[2.5rem]">
+                Aprende a observar las hojas
+              </h2>
+              <p className="mt-3 text-sm leading-6 text-[#52655d] sm:text-base">
+                Consulta señales visuales habituales en ejemplos reales de TRAIN con anotación original verificada. Esta guía ayuda a comparar; no confirma diagnósticos.
+              </p>
+            </div>
+            <p className="guide-context">
+              <strong>Alcance:</strong> tres categorías del clasificador. Las variaciones por edad, luz, nutrición u otras afectaciones pueden no estar representadas.
             </p>
           </div>
 
-          <div className="mt-7 grid items-start gap-5 lg:grid-cols-3">
+          <div className="mt-8 grid items-start gap-5 lg:grid-cols-3">
             {GUIDE_CARDS.map((card) => (
-              <article id={card.id} key={card.id} className="guide-card scroll-mt-28 overflow-hidden rounded-3xl border border-[#163f31]/12 bg-[#fffdf6] shadow-[0_16px_50px_rgba(22,63,49,0.08)] sm:scroll-mt-20">
-                <img src={card.image} alt={card.alt} width={1920} height={1080} loading="lazy" className="aspect-[16/10] w-full object-cover" />
+              <article id={card.id} key={card.id} className="guide-card scroll-mt-28 overflow-hidden sm:scroll-mt-20">
+                <div className="relative overflow-hidden">
+                  <img src={card.image} alt={card.alt} width={1920} height={1080} loading="lazy" className="aspect-[16/10] w-full object-cover" />
+                  <span className="photo-label">Ejemplo RoCoLe · TRAIN</span>
+                </div>
                 <div className="p-5 sm:p-6">
-                  <p className="text-xs font-extrabold tracking-[0.14em] text-[#9d4e34] uppercase">{card.eyebrow}</p>
-                  <h3 className="mt-1 text-xl font-black text-[#163f31]">{card.title}</h3>
-                  <p className="mt-3 text-sm leading-6 text-[#455f55]">{card.description}</p>
+                  <p className="section-kicker">{card.eyebrow}</p>
+                  <h3 className="mt-1.5 text-xl font-black tracking-[-0.025em] text-[#11382b]">{card.title}</h3>
+                  <p className="mt-3 text-sm leading-6 text-[#52655d]">{card.description}</p>
 
                   <details className="guide-details mt-5 border-t border-[#163f31]/10 pt-4">
-                    <summary className="inline-flex min-h-11 cursor-pointer list-none items-center rounded-lg border-2 border-[#163f31] px-4 py-2 text-sm font-extrabold text-[#163f31] hover:bg-[#163f31] hover:text-white focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#9d4e34]">
+                    <summary className="inline-flex min-h-11 cursor-pointer list-none items-center text-sm font-extrabold text-[#285646] hover:text-[#a75236] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#9d4e34]">
                       Ver detalles
                     </summary>
-                    <div className="mt-4 text-sm leading-6 text-[#455f55]">
-                      <h4 className="font-extrabold text-[#163f31]">Señales visuales habituales</h4>
-                      <ul className="mt-2 space-y-2">
-                        {card.signs.map((sign) => <li key={sign}>• {sign}</li>)}
+                    <div className="mt-4 text-sm leading-6 text-[#52655d]">
+                      <h4 className="font-extrabold text-[#11382b]">Señales visuales habituales</h4>
+                      <ul className="guide-signs mt-2 space-y-2">
+                        {card.signs.map((sign) => <li key={sign}>{sign}</li>)}
                       </ul>
-                      <p className="mt-4 rounded-xl bg-[#f6f0df] px-3 py-2.5 text-xs leading-5">
-                        <strong className="text-[#163f31]">Fuente del texto:</strong>{" "}
-                        <a href={card.sourceUrl} target="_blank" rel="noreferrer" className="font-bold text-[#7b3825] underline underline-offset-2">
+                      <p className="mt-4 border-l-2 border-[#d8c6a6] bg-[#f8f5ed] px-3 py-2.5 text-xs leading-5">
+                        <strong className="text-[#11382b]">Fuente del texto:</strong>{" "}
+                        <a href={card.sourceUrl} target="_blank" rel="noreferrer" className="font-bold text-[#87442f] underline underline-offset-2">
                           {card.sourceTitle}
                         </a>. Texto resumido y contextualizado para esta guía.
                       </p>
                       <p className="mt-3 text-xs leading-5">
-                        <strong className="text-[#163f31]">Fotografía:</strong> {card.photoId}, partición TRAIN; anotación original “{card.originalLabel}”. RoCoLe v2, Jorge Parraga-Alava, Kevin Cusme, Angélica Loor y Esneider Santander,{" "}
-                        <a href="https://data.mendeley.com/datasets/c5yvn32dzg/2" target="_blank" rel="noreferrer" className="font-bold text-[#7b3825] underline underline-offset-2">CC BY 4.0</a>.
+                        <strong className="text-[#11382b]">Fotografía:</strong> {card.photoId}, partición TRAIN; anotación original “{card.originalLabel}”. RoCoLe v2, Jorge Parraga-Alava, Kevin Cusme, Angélica Loor y Esneider Santander,{" "}
+                        <a href="https://data.mendeley.com/datasets/c5yvn32dzg/2" target="_blank" rel="noreferrer" className="font-bold text-[#87442f] underline underline-offset-2">CC BY 4.0</a>.
                       </p>
                     </div>
                   </details>
@@ -568,15 +646,36 @@ export default function Home() {
             ))}
           </div>
 
-          <p className="mt-5 rounded-2xl border border-[#d0a24c]/50 bg-[#fff9e9] px-5 py-4 text-sm leading-6 text-[#5e4b23]">
-            Las explicaciones de Cenicafé describen información agronómica general. Las etiquetas de RoCoLe solo indican la categoría asignada a cada fotografía; en particular, “ácaro rojo” no identifica una especie concreta en la documentación del dataset.
-          </p>
+          <div className="mt-6 flex gap-3 border-t border-[#ced8d3] pt-5 text-sm leading-6 text-[#5f7069]">
+            <svg className="mt-1 h-4 w-4 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
+            <p>Las explicaciones de Cenicafé describen información agronómica general. Las etiquetas de RoCoLe solo indican la categoría asignada a cada fotografía; “ácaro rojo” no identifica una especie concreta en la documentación del dataset.</p>
+          </div>
         </section>
       </main>
 
-      <footer className="mt-10 border-t border-[#163f31]/12 bg-[#163f31] px-4 py-6 text-center text-sm leading-6 text-[#f6f0df]">
-        CaféIA es un prototipo académico de tres clases. No reemplaza la revisión de una persona experta.
+      <footer className="site-footer mt-12">
+        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-7 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+          <div className="flex items-center gap-2.5">
+            <span className="brand-mark is-footer" aria-hidden="true"><span className="leaf-mark" /></span>
+            <span className="font-extrabold">CaféIA</span>
+          </div>
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <p className="max-w-2xl text-[#c7d5cf] sm:text-right">Herramienta de apoyo visual para tres categorías. Sus resultados son orientativos y no reemplazan la revisión de una persona experta.</p>
+            <button type="button" onClick={() => setPrivacyDialogOpen(true)} className="footer-privacy-button">
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.9 8.3 7 10 4.1-1.7 7-5.4 7-10V6l-7-3Z"/></svg>
+              Privacidad y consentimiento
+            </button>
+          </div>
+        </div>
       </footer>
+
+      <PrivacyConsent
+        choice={privacyChoice}
+        open={privacyDialogOpen}
+        onAccept={acceptPrivacyConsent}
+        onClose={() => setPrivacyDialogOpen(false)}
+        onDecline={declinePrivacyConsent}
+      />
     </>
   );
 }
