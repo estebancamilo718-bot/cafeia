@@ -174,18 +174,18 @@ try {
   const consentNotice = await evaluate(
     client,
     `({
-      hasNoStorageClaim: document.body.innerText.includes("La imagen se procesa en memoria y no se guarda"),
-      hasNoAnalyticsClaim: document.body.innerText.includes("No usamos cookies publicitarias ni de analítica"),
+      hasNoStorageClaim: document.body.innerText.includes("la imagen no se guarda"),
+      hasNoAnalyticsClaim: document.body.innerText.includes("No usamos publicidad ni herramientas de seguimiento"),
       title: document.querySelector("#consent-title")?.textContent,
     })`,
   );
 
-  await clickDialogTab(client, "Privacidad");
-  await waitFor(client, "document.body.innerText.includes('Un flujo corto y explícito')", "pestaña de privacidad");
-  await clickDialogTab(client, "Alcance");
-  await waitFor(client, "document.body.innerText.includes('Qué puede y qué no puede hacer CaféIA')", "pestaña de alcance");
-  await clickDialogTab(client, "Consentimiento");
-  await waitFor(client, "document.body.innerText.includes('Autoriza el análisis antes de enviar una imagen')", "pestaña de consentimiento");
+  await clickDialogTab(client, "Tu fotografía");
+  await waitFor(client, "document.body.innerText.includes('Solo tres pasos')", "pestaña de fotografía");
+  await clickDialogTab(client, "Qué analiza");
+  await waitFor(client, "document.body.innerText.includes('CaféIA compara tres categorías')", "pestaña de alcance");
+  await clickDialogTab(client, "Tu permiso");
+  await waitFor(client, "document.body.innerText.includes('Tú decides si deseas analizar la fotografía')", "pestaña de consentimiento");
 
   await clickButton(client, "Continuar sin analizar");
   await waitFor(
@@ -298,7 +298,7 @@ try {
   );
   const connectionError = await evaluate(
     client,
-    "document.body.innerText.includes('Comprueba que el backend esté encendido')",
+    "document.body.innerText.includes('Comprueba tu conexión e inténtalo de nuevo')",
   );
   await screenshot(client, "connection_error_1440.png");
   await client.send("Network.setBlockedURLs", { urls: [] });

@@ -5,9 +5,9 @@ import { KeyboardEvent, useEffect, useRef, useState } from "react";
 import type { PrivacyConsentChoice } from "../lib/privacy-consent";
 
 const TABS = [
-  { id: "consent", label: "Consentimiento" },
-  { id: "privacy", label: "Privacidad" },
-  { id: "scope", label: "Alcance" },
+  { id: "consent", label: "Tu permiso" },
+  { id: "privacy", label: "Tu fotografía" },
+  { id: "scope", label: "Qué analiza" },
 ] as const;
 
 type TabId = (typeof TABS)[number]["id"];
@@ -152,41 +152,41 @@ export function PrivacyConsent({
         <div className="consent-content">
           {activeTab === "consent" && (
             <section role="tabpanel" id="panel-consent" aria-labelledby="tab-consent">
-              <p className="consent-eyebrow">Tu fotografía, bajo tu control</p>
-              <h3 className="consent-heading">Autoriza el análisis antes de enviar una imagen</h3>
+              <p className="consent-eyebrow">Antes de comenzar</p>
+              <h3 className="consent-heading">Tú decides si deseas analizar la fotografía</h3>
               <p id="consent-summary" className="consent-copy">
-                Al pulsar “Analizar hoja”, la fotografía seleccionada se envía al backend configurado de CaféIA para ejecutar el modelo. La imagen se procesa en memoria y no se guarda.
+                Cuando pulses “Analizar hoja”, CaféIA usará la fotografía únicamente para mostrarte un resultado. No necesitas crear una cuenta y la imagen no se guarda.
               </p>
               <div className="consent-assurances">
-                <p><span aria-hidden="true">✓</span>No solicitamos una cuenta ni datos personales.</p>
-                <p><span aria-hidden="true">✓</span>No usamos cookies publicitarias ni de analítica.</p>
-                <p><span aria-hidden="true">✓</span>Solo guardamos esta decisión en el almacenamiento local del navegador.</p>
+                <p><span aria-hidden="true">✓</span>No pedimos tu nombre ni datos de contacto.</p>
+                <p><span aria-hidden="true">✓</span>No usamos publicidad ni herramientas de seguimiento.</p>
+                <p><span aria-hidden="true">✓</span>Puedes cambiar esta decisión cuando quieras.</p>
               </div>
             </section>
           )}
 
           {activeTab === "privacy" && (
             <section role="tabpanel" id="panel-privacy" aria-labelledby="tab-privacy">
-              <p className="consent-eyebrow">Tratamiento de la imagen</p>
-              <h3 className="consent-heading">Un flujo corto y explícito</h3>
+              <p className="consent-eyebrow">Cómo usamos tu fotografía</p>
+              <h3 className="consent-heading">Solo tres pasos</h3>
               <ol className="privacy-flow">
-                <li><span>01</span><div><strong>Selección local</strong><p>La vista previa se crea en tu navegador.</p></div></li>
-                <li><span>02</span><div><strong>Envío al backend</strong><p>Solo ocurre cuando pulsas “Analizar hoja”.</p></div></li>
-                <li><span>03</span><div><strong>Inferencia en memoria</strong><p>El backend valida la imagen, calcula las puntuaciones y no conserva el archivo.</p></div></li>
+                <li><span>01</span><div><strong>Eliges la imagen</strong><p>Puedes verla y cambiarla antes de analizar.</p></div></li>
+                <li><span>02</span><div><strong>La analizamos</strong><p>El análisis solo comienza cuando pulsas “Analizar hoja”.</p></div></li>
+                <li><span>03</span><div><strong>Ves el resultado</strong><p>Después puedes elegir otra fotografía.</p></div></li>
               </ol>
-              <p className="consent-fine-print">Puedes retirar el consentimiento desde “Privacidad” en el pie de página. Al hacerlo, también se elimina cualquier fotografía seleccionada de la interfaz.</p>
+              <p className="consent-fine-print">Puedes retirar el permiso desde “Privacidad y consentimiento”, al final de la página. La fotografía seleccionada se quitará de la pantalla.</p>
             </section>
           )}
 
           {activeTab === "scope" && (
             <section role="tabpanel" id="panel-scope" aria-labelledby="tab-scope">
-              <p className="consent-eyebrow">Uso responsable</p>
-              <h3 className="consent-heading">Qué puede y qué no puede hacer CaféIA</h3>
+              <p className="consent-eyebrow">Antes de usar el resultado</p>
+              <h3 className="consent-heading">CaféIA compara tres categorías</h3>
               <div className="scope-grid">
-                <div><strong>Puede comparar</strong><p>Patrones con hoja sana, roya y daño por ácaro rojo.</p></div>
-                <div><strong>No puede confirmar</strong><p>Un diagnóstico, la especie de ácaro o que la imagen pertenezca a una hoja de café.</p></div>
+                <div><strong>Lo que compara</strong><p>Hoja sana, roya y daño por ácaro rojo.</p></div>
+                <div><strong>Lo que debes tener en cuenta</strong><p>Puede equivocarse y no reconoce todas las condiciones de una hoja.</p></div>
               </div>
-              <p className="consent-warning">Las puntuaciones no son probabilidades calibradas de acierto. Un resultado alto también puede ser incorrecto.</p>
+              <p className="consent-warning">Las puntuaciones comparan las tres opciones; no garantizan que el resultado sea correcto.</p>
             </section>
           )}
         </div>

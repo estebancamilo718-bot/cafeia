@@ -16,7 +16,7 @@ export function validateSelectedImage(file: FileMetadata): string | null {
 
 export function analysisFailureMessage(reason: unknown): string {
   if (reason instanceof TypeError) {
-    return "No se pudo conectar con CaféIA. Comprueba que el backend esté encendido.";
+    return "No se pudo conectar con CaféIA. Comprueba tu conexión e inténtalo de nuevo.";
   }
   if (reason instanceof Error) return reason.message;
   return "Ocurrió un error inesperado.";

@@ -63,9 +63,9 @@ test("valida formato y límite de 10 MB antes del envío", () => {
   );
 });
 
-test("presenta un error específico cuando el backend no está disponible", () => {
+test("presenta un error claro cuando el servicio no está disponible", () => {
   assert.equal(
     analysisFailureMessage(new TypeError("fetch failed")),
-    "No se pudo conectar con CaféIA. Comprueba que el backend esté encendido.",
+    "No se pudo conectar con CaféIA. Comprueba tu conexión e inténtalo de nuevo.",
   );
 });

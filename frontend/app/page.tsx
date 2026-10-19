@@ -38,13 +38,9 @@ const GUIDE_CARDS = [
     description:
       "Una hoja de referencia para comparar el color, la superficie y la forma general frente a las otras categorías.",
     signs: [
-      "Tejido predominantemente verde y sin las señales habituales de roya o daño por ácaro descritas en esta guía.",
-      "El color, el brillo y la forma pueden variar por edad, nutrición, luz y otras condiciones que CaféIA no distingue.",
+      "Color verde parejo y superficie de aspecto uniforme.",
+      "Sin manchas amarillas redondas ni zonas pardas visibles.",
     ],
-    sourceTitle: "Síntomas visuales de deficiencias nutricionales en café (Cenicafé, Avance 478)",
-    sourceUrl: "https://publicaciones.cenicafe.org/index.php/avances_tecnicos/article/view/302",
-    photoId: "C10P12H1.jpg",
-    originalLabel: "sana",
   },
   {
     id: "guia-roya",
@@ -55,13 +51,9 @@ const GUIDE_CARDS = [
     description:
       "La roya puede mostrar señales distintas en cada cara de la hoja. Revisa el patrón, la forma y la distribución de las manchas.",
     signs: [
-      "En el envés pueden aparecer manchas redondeadas amarillas con aspecto de polvillo; en el haz suelen verse amarillas y lisas.",
-      "Algunas manchas desarrollan un centro pardo. Otras afectaciones pueden parecerse, por lo que la fotografía no confirma un diagnóstico.",
+      "Puntos o manchas amarillas, especialmente en el envés.",
+      "Algunas áreas pueden presentar un centro de color pardo.",
     ],
-    sourceTitle: "Enfermedades foliares del cafeto (Cenicafé, Avance 106)",
-    sourceUrl: "https://publicaciones.cenicafe.org/index.php/avances_tecnicos/article/view/2069",
-    photoId: "C10P27E2.jpg",
-    originalLabel: "roya, nivel 2",
   },
   {
     id: "guia-acaro",
@@ -72,13 +64,9 @@ const GUIDE_CARDS = [
     description:
       "Esta categoría reúne hojas con cambios de brillo y coloración parda o rojiza. La imagen por sí sola no confirma la causa.",
     signs: [
-      "Cenicafé describe como señales habituales la pérdida de brillo y la coloración parda o rojiza, a veces más marcada junto a las nervaduras.",
-      "Estos cambios pueden ser más visibles en hojas viejas y persistir aunque ya no se observen ácaros; por sí solos no confirman la causa.",
+      "Pérdida de brillo y tonos pardos o rojizos.",
+      "Cambios de color más marcados cerca de las nervaduras.",
     ],
-    sourceTitle: "La arañita roja del cafeto (Cenicafé, Avance 22)",
-    sourceUrl: "https://publicaciones.cenicafe.org/index.php/avances_tecnicos/article/view/2157",
-    photoId: "C11P9H2.jpg",
-    originalLabel: "ácaro rojo",
   },
 ] as const;
 
@@ -241,7 +229,7 @@ export default function Home() {
       const payload: unknown = await response.json().catch(() => null);
       if (!response.ok) throw new Error(errorMessage(payload));
       if (!isPrediction(payload)) {
-        throw new Error("El backend devolvió una respuesta de predicción inesperada.");
+        throw new Error("No pudimos leer el resultado. Inténtalo de nuevo.");
       }
       if (requestCoordinatorRef.current.isCurrent(requestTicket)) {
         setResult(payload);
@@ -310,17 +298,20 @@ export default function Home() {
                 <p className="hero-copy">
                   Sube una fotografía clara de una sola hoja. CaféIA la compara con ejemplos de hoja sana, roya y daño por ácaro rojo.
                 </p>
-                <div className="trust-row mt-5" aria-label="Características del análisis">
-                  <span>
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.9 8.3 7 10 4.1-1.7 7-5.4 7-10V6l-7-3Z"/><path d="m9.5 12 1.6 1.6 3.7-4"/></svg>
-                    La foto no se almacena
-                  </span>
-                  <span>
-                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="m4 15 4.5-4.5 3 3L14 11l6 6"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>
-                    JPG o PNG · máx. 10 MB
-                  </span>
-                </div>
               </div>
+              <figure className="hero-photo">
+                <img
+                  src="/guide/hoja-sana-rocole-c10p12h1.jpg"
+                  alt="Hoja de café sana, verde y completa"
+                  width={1920}
+                  height={1080}
+                />
+                <span className="hero-photo__shade" aria-hidden="true" />
+                <figcaption>
+                  <span>Una hoja, una mirada más clara</span>
+                  Fotografía con luz natural y la hoja completa
+                </figcaption>
+              </figure>
             </div>
           </div>
 
@@ -336,7 +327,7 @@ export default function Home() {
 
               <form onSubmit={analyze} className="mt-5 flex flex-1 flex-col gap-4">
                 <p id="upload-help" className="sr-only">
-                  Archivos JPG o PNG de hasta 10 MB. Usa buena luz y una hoja enfocada.
+                  Elige un archivo JPG o PNG. Usa buena luz y una hoja enfocada.
                 </p>
 
                 {consentAccepted ? (
@@ -344,7 +335,7 @@ export default function Home() {
                     <span className="consent-inline-icon" aria-hidden="true">
                       <svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.6 2.9 8.3 7 10 4.1-1.7 7-5.4 7-10V6l-7-3Z"/><path d="m9.5 12 1.6 1.6 3.7-4"/></svg>
                     </span>
-                    <p><strong>Consentimiento activo.</strong> La fotografía se procesará sin almacenarse.</p>
+                    <p><strong>Permiso activo.</strong> Ya puedes analizar la fotografía seleccionada.</p>
                     <button type="button" onClick={() => setPrivacyDialogOpen(true)}>Revisar</button>
                   </div>
                 ) : (
@@ -623,27 +614,22 @@ export default function Home() {
                     <summary className="inline-flex min-h-11 cursor-pointer list-none items-center text-sm font-extrabold text-[#285646] hover:text-[#a75236] focus-visible:outline-3 focus-visible:outline-offset-3 focus-visible:outline-[#9d4e34]">
                       Ver detalles
                     </summary>
-                    <div className="mt-4 text-sm leading-6 text-[#52655d]">
-                      <h4 className="font-extrabold text-[#11382b]">Señales visuales habituales</h4>
+                    <div className="guide-observation mt-4 text-sm leading-6 text-[#52655d]">
+                      <h4>Qué observar</h4>
                       <ul className="guide-signs mt-2 space-y-2">
                         {card.signs.map((sign) => <li key={sign}>{sign}</li>)}
                       </ul>
-                      <p className="mt-4 border-l-2 border-[#d8c6a6] bg-[#f8f5ed] px-3 py-2.5 text-xs leading-5">
-                        <strong className="text-[#11382b]">Fuente del texto:</strong>{" "}
-                        <a href={card.sourceUrl} target="_blank" rel="noreferrer" className="font-bold text-[#87442f] underline underline-offset-2">
-                          {card.sourceTitle}
-                        </a>. Texto resumido y contextualizado para esta guía.
-                      </p>
-                      <p className="mt-3 text-xs leading-5">
-                        <strong className="text-[#11382b]">Fotografía:</strong> {card.photoId}, partición TRAIN; anotación original “{card.originalLabel}”. RoCoLe v2, Jorge Parraga-Alava, Kevin Cusme, Angélica Loor y Esneider Santander,{" "}
-                        <a href="https://data.mendeley.com/datasets/c5yvn32dzg/2" target="_blank" rel="noreferrer" className="font-bold text-[#87442f] underline underline-offset-2">CC BY 4.0</a>.
-                      </p>
+                      <p className="observation-note">Úsalas como guía de comparación; una fotografía puede no mostrar todas las señales.</p>
                     </div>
                   </details>
                 </div>
               </article>
             ))}
           </div>
+
+          <p className="guide-credits">
+            Información general: <a href="https://publicaciones.cenicafe.org/" target="_blank" rel="noreferrer">Cenicafé</a>. Fotografías: <a href="https://data.mendeley.com/datasets/c5yvn32dzg/2" target="_blank" rel="noreferrer">RoCoLe v2</a>, licencia <a href="https://creativecommons.org/licenses/by/4.0/" target="_blank" rel="noreferrer">CC BY 4.0</a>.
+          </p>
         </section>
       </main>
 
