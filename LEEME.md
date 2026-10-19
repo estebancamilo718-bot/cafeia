@@ -1,6 +1,6 @@
 # CaféIA: instalación, reproducción y ejecución
 
-Este documento describe el estado vigente de CaféIA. La aplicación local funciona con FastAPI y Next.js; la selección de modelos y la evaluación final de la versión 1 ya se cerraron. No se ha realizado un despliegue público.
+Este documento describe el estado vigente de CaféIA. La aplicación local funciona con FastAPI y Next.js; la selección de modelos y la evaluación final de la versión 1 ya se cerraron. El frontend público está en `https://cafeia.vercel.app` y el backend en `https://cafeia-jiwk.onrender.com`.
 
 ## 1. Estado del proyecto
 
@@ -36,7 +36,7 @@ src/                         Preparación, entrenamiento, validación y evaluaci
 reports/                     Protocolos, métricas y auditorías
 ```
 
-La ruta de inferencia es: archivo JPG/PNG → validación de formato y contenido → orientación EXIF y RGB → `Resize((224, 224))` → tensor → normalización ImageNet → MobileNet → score experimental de dominio → si se acepta, softmax sobre tres salidas → respuesta API → presentación web. Si se rechaza, la API no devuelve categoría ni puntuaciones de café.
+La ruta de inferencia es: archivo JPG/PNG → validación de formato y contenido → orientación EXIF y RGB → `Resize((224, 224))` → tensor → normalización ImageNet → MobileNet → score experimental de dominio → si se acepta, softmax sobre tres salidas → respuesta API → presentación web. Si se rechaza, la primera respuesta no devuelve categoría ni puntuaciones de café. Solo después de una acción explícita **Analizar de todos modos**, el mismo endpoint puede devolver `outside_domain_analyzed`: una comparación limitada que conserva `is_supported_image=false` y no confirma que la fotografía sea café.
 
 El backend carga el checkpoint y el filtro una vez en el arranque, exige sus hashes, verifica que ambos correspondan al mismo modelo y orden `sana → ácaro rojo → roya`, y no guarda la fotografía recibida.
 
@@ -48,7 +48,7 @@ Entorno local verificado:
 
 - Python `3.11.9`.
 - Node.js local `25.9.0` y npm `11.12.1`.
-- La CI y el objetivo de despliegue usan Node `22`, una versión LTS compatible con el proyecto; su primera ejecución remota ocurrirá después de hacer push.
+- La CI y el despliegue usan Node `22`, una versión LTS compatible con el proyecto. La CI se ejecuta en cada `push` a `main` y en cada `pull request` dirigido a `main`.
 
 Las dependencias directas verificadas están fijadas con `==`:
 
@@ -123,7 +123,7 @@ Pruebas del backend:
 & .\.venv\Scripts\python.exe -m pytest -q tests/backend
 ```
 
-- `test_api_contract.py` sustituye el predictor por un doble determinista. Comprueba contrato, JPG/PNG, contenido real, archivo vacío, exceso de 10 MB, discrepancia de formato y error interno. No prueba el modelo.
+- `test_api_contract.py` usa principalmente dobles deterministas. Comprueba contrato, JPG/PNG, contenido real, archivo vacío, exceso de 10 MB, discrepancia de formato, error interno y el permiso explícito de comparación limitada. Una prueba determinista de la clase `Predictor` verifica que ese permiso solo cambia la exposición del resultado; no demuestra exactitud.
 - `test_checkpoint_inference.py` verifica el hash, carga el checkpoint real y ejecuta una inferencia sobre una imagen sintética creada en memoria. Prueba integración técnica, no desempeño ni exactitud.
 - `test_domain_guard.py` comprueba score, umbral, serialización y que obtener el embedding no altere los logits del modelo.
 
@@ -137,7 +137,7 @@ npm.cmd run build
 
 La prueba cubre doble envío, cancelación, sustitución durante una petición, validación previa y error de conexión. La compilación ejecuta TypeScript y genera la salida optimizada.
 
-El flujo manual de navegador pendiente de repetición está en `reports/MANUAL_BROWSER_WALKTHROUGH.md`.
+El verificador automatizado de navegador cubre carga, reemplazo durante una petición, resultados, rechazo de dominio, comparación limitada, desconexión, teclado, consentimiento y anchos 390/768/1440. Su evidencia está en `reports/web_ui_verification/browser_checks.json`. `reports/MANUAL_BROWSER_WALKTHROUGH.md` se conserva para una revisión humana complementaria desde el dispositivo final.
 
 ### Comprobación E2E local con fotografías reales de VAL
 
@@ -160,7 +160,7 @@ Esta comprobación no pertenece a la CI porque necesita el dataset local y la co
 1. instala `requirements-api.txt` y `requirements-test.txt`, ejecuta pruebas con doble y la inferencia real del checkpoint;
 2. ejecuta `npm ci`, las pruebas del flujo y `npm run build`.
 
-La CI no descarga RoCoLe, no accede a `data/raw`, no consulta TEST y no entrena. La primera ejecución en GitHub ocurrirá después del próximo push; el commit local por sí solo no la activa.
+La CI no descarga RoCoLe, no accede a `data/raw`, no consulta TEST y no entrena. Un commit local por sí solo no la activa; se ejecuta cuando el cambio llega a GitHub mediante `push` o `pull request`.
 
 ## 8. Preparación y experimentación académica
 
@@ -206,7 +206,9 @@ Con el umbral provisional `0.70`, 158/300 predicciones quedaron aceptadas, 140 f
 
 El filtro de dominio, construido sin TEST, aceptó 141/153 hojas de café de su porción de evaluación de VAL y rechazó los 200 negativos externos concretos del protocolo. Entre las hojas válidas rechazó 3 sanas, 1 de ácaro y 8 de roya. El resultado permite usarlo como barrera experimental, pero no como garantía de café/no café. Detalles en `reports/DOMAIN_GUARD_RESULTS.md`.
 
-## 10. Despliegue público: preparado, no ejecutado
+El candidato posterior con 1.197 referencias auditadas de CoffeeLeaf-CO aceptó 460/508 fotografías reservadas por imagen de esa fuente, frente a 217/508 del control, y mantuvo rechazados los 200 negativos concretos. No se integró: la comprobación externa prefijada sigue pendiente y el score negativo máximo se acercó al umbral. No fue un entrenamiento del clasificador ni aporta ejemplos de ácaro rojo. Detalles en `reports/COFFEELEAF_DOMAIN_GUARD_EXPERIMENT.md`.
+
+## 10. Despliegue público vigente
 
 ### Backend en Render
 
@@ -226,7 +228,12 @@ Las rutas `models/mobilenet_finetuned_epoch6.pt` y `models/coffee_domain_guard.p
 - Comando: `npm run build`.
 - Variable: `NEXT_PUBLIC_API_URL=https://dominio-real-del-backend`, sin `/` final.
 
-No hay todavía URL pública. Las direcciones `.example` son marcadores y no servicios activos. Tras publicar de forma autorizada se deben verificar `/health`, hash, CORS, memoria, archivo inválido, predicción y recuperación ante desconexión.
+Servicios publicados:
+
+- frontend: `https://cafeia.vercel.app`;
+- backend: `https://cafeia-jiwk.onrender.com`.
+
+En Vercel, `NEXT_PUBLIC_API_URL=https://cafeia-jiwk.onrender.com`. En Render, `CORS_ALLOWED_ORIGINS=https://cafeia.vercel.app`. Si ambos servicios continúan conectados a `main`, cada `push` inicia sus despliegues automáticos. Tras cada cambio se deben verificar `/health`, hashes, CORS, archivo inválido, predicción y recuperación ante desconexión. En el plan gratuito de Render el servicio puede entrar en reposo; la primera solicitud posterior puede tardar mientras inicia y carga los artefactos.
 
 La medición local histórica fue aproximadamente 310 MiB de working set con el modelo cargado y 351 MiB durante predicción. Es orientativa; el consumo debe medirse de nuevo en Linux y en el servicio elegido.
 
@@ -273,6 +280,9 @@ Los archivos ignorados siguen siendo importantes localmente. No borres `data/raw
 - `reports/RELIABILITY_AUDIT.md`: flujo web y errores de concurrencia.
 - `reports/V2_PREPROCESSING_RESULTS.md`: candidato v2 descartado.
 - `reports/DOMAIN_GUARD_RESULTS.md`: protocolo, resultados y límites del filtro de dominio.
+- `reports/DOMAIN_GENERALIZATION_V2_PROTOCOL.md`: protocolo previo para datos externos auditados.
+- `reports/COFFEELEAF_DOMAIN_GUARD_EXPERIMENT.md`: auditoría y comparación del candidato externo no integrado.
+- `reports/DOMAIN_GUARD_LIMITED_OVERRIDE.md`: decisión y pruebas de la comparación limitada.
 - `ATTRIBUTIONS.md`: licencias y fuentes de terceros.
 
-El código del proyecto todavía no tiene una licencia propia. Elegirla antes de abrir públicamente el repositorio sigue siendo una decisión de la persona autora.
+El código del proyecto todavía no tiene una licencia propia. Como el repositorio ya es público, elegirla es una decisión urgente pendiente; sin licencia no se conceden permisos explícitos para reutilizar el código.

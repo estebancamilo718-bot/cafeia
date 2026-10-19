@@ -16,16 +16,28 @@
     "1440": "660.5px 660.5px"
   },
   "replacementWorked": true,
+  "pendingReplacementState": {
+    "currentPhotoVisible": true,
+    "staleResultHidden": true,
+    "analyzeEnabled": true
+  },
   "uncertainState": {
     "title": "Resultado incierto",
     "hasSecondary": true,
     "exposesInternalId": false
   },
-  "acceptedTitle": "Clasificación orientativa: Hoja sana",
+  "acceptedTitle": "Clasificación orientativa: Roya",
   "outsideDomainState": {
     "title": "No se pudo confirmar la hoja",
     "hasRequestedMessage": true,
     "hidesCoffeeScores": true,
+    "exposesInternalId": false
+  },
+  "outsideDomainAnalyzedState": {
+    "title": "Resultado con alcance limitado",
+    "hasSuggestedCategory": true,
+    "showsCoffeeScores": true,
+    "keepsDomainWarning": true,
     "exposesInternalId": false
   },
   "connectionError": true,
@@ -51,6 +63,8 @@
     "initial_768.png",
     "outside_domain_1440.png",
     "outside_domain_390.png",
+    "outside_domain_analyzed_1440.png",
+    "outside_domain_analyzed_390.png",
     "uncertain_390.png"
   ]
 }

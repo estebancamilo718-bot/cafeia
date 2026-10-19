@@ -30,6 +30,10 @@ const edge = spawn(
 
 const delay = (milliseconds) => new Promise((resolve) => setTimeout(resolve, milliseconds));
 
+function assertCheck(condition, description) {
+  if (!condition) throw new Error(`Falló la verificación del navegador: ${description}`);
+}
+
 async function waitForDebugTarget() {
   for (let attempt = 0; attempt < 50; attempt += 1) {
     try {
@@ -98,7 +102,7 @@ async function waitFor(client, expression, description) {
   }
   const context = await evaluate(
     client,
-    `({ url: location.href, title: document.title, text: document.body?.innerText?.slice(0, 500) })`,
+    `({ url: location.href, title: document.title, text: document.body?.innerText?.slice(0, 2000) })`,
   );
   throw new Error(`No se observó el estado esperado: ${description}. Estado: ${JSON.stringify(context)}`);
 }
@@ -239,6 +243,41 @@ try {
   await waitFor(client, `document.body.innerText.includes(${JSON.stringify(path.basename(uncertainImage))})`, "carga de imagen");
   await setFile(client, replacementImage);
   await waitFor(client, `document.body.innerText.includes(${JSON.stringify(path.basename(replacementImage))})`, "reemplazo de imagen");
+
+  await setFile(client, uncertainImage);
+  await client.send("Network.emulateNetworkConditions", {
+    offline: false,
+    latency: 1200,
+    downloadThroughput: -1,
+    uploadThroughput: -1,
+  });
+  await clickButton(client, "Analizar hoja");
+  await waitFor(client, "document.body.innerText.includes('Analizando la fotografía')", "petición pendiente");
+  await delay(100);
+  await setFile(client, replacementImage);
+  await client.send("Network.emulateNetworkConditions", {
+    offline: false,
+    latency: 0,
+    downloadThroughput: -1,
+    uploadThroughput: -1,
+  });
+  await waitFor(
+    client,
+    `document.body.innerText.includes(${JSON.stringify(path.basename(replacementImage))}) && !document.body.innerText.includes("Analizando la fotografía")`,
+    "sustitución durante una petición",
+  );
+  // Supera la latencia artificial para comprobar que una respuesta tardía
+  // no reaparezca asociada a la fotografía de reemplazo.
+  await delay(1600);
+  const pendingReplacementState = await evaluate(
+    client,
+    `({
+      currentPhotoVisible: document.body.innerText.includes(${JSON.stringify(path.basename(replacementImage))}),
+      staleResultHidden: !document.body.innerText.includes("Resultado incierto") && !document.body.innerText.includes("Clasificación orientativa:") && !document.body.innerText.includes("Resultado con alcance limitado"),
+      analyzeEnabled: document.querySelector("button[type=submit]")?.disabled === false,
+    })`,
+  );
+
   await setFile(client, uncertainImage);
   await clickButton(client, "Analizar hoja");
   await waitFor(client, "document.body.innerText.includes('Resultado incierto')", "resultado incierto");
@@ -259,6 +298,7 @@ try {
   await screenshot(client, "accepted_1440.png");
 
   let outsideDomainState = null;
+  let outsideDomainAnalyzedState = null;
   if (outsideDomainImage) {
     await clickButton(client, "Analizar otra fotografía");
     await setFile(client, outsideDomainImage);
@@ -285,9 +325,34 @@ try {
     await delay(250);
     await screenshot(client, "outside_domain_390.png");
     await setViewport(client, 1440);
+
+    await clickButton(client, "Analizar de todos modos");
+    await waitFor(
+      client,
+      "document.querySelector('.result-summary__status')?.textContent?.includes('Comparación limitada') && document.body.innerText.includes('Puntuaciones por clase')",
+      "comparación limitada solicitada por la persona",
+    );
+    outsideDomainAnalyzedState = await evaluate(
+      client,
+      `({
+        title: document.querySelector("#result-title")?.textContent,
+        hasSuggestedCategory: document.body.innerText.includes("Categoría sugerida:"),
+        showsCoffeeScores: document.body.innerText.includes("Puntuaciones por clase"),
+        keepsDomainWarning: document.body.innerText.includes("no confirman que la imagen sea café"),
+        exposesInternalId: document.body.innerText.includes("coffee___"),
+      })`,
+    );
+    await evaluate(client, "document.querySelector('#result-title')?.scrollIntoView({ block: 'center' })");
+    await delay(200);
+    await screenshot(client, "outside_domain_analyzed_1440.png");
+    await setViewport(client, 390);
+    await evaluate(client, "document.querySelector('#result-title')?.scrollIntoView({ block: 'center' })");
+    await delay(250);
+    await screenshot(client, "outside_domain_analyzed_390.png");
+    await setViewport(client, 1440);
   }
 
-  await clickButton(client, outsideDomainImage ? "Cargar otra fotografía" : "Analizar otra fotografía");
+  await clickButton(client, "Analizar otra fotografía");
   await setFile(client, uncertainImage);
   await client.send("Network.setBlockedURLs", { urls: ["http://127.0.0.1:8000/*"] });
   await clickButton(client, "Analizar hoja");
@@ -326,14 +391,64 @@ try {
     })`,
   );
 
+  assertCheck(responsive[390] && !responsive[390].includes(" "), "una columna a 390 px");
+  assertCheck(responsive[768]?.includes(" "), "dos columnas a 768 px");
+  assertCheck(responsive[1440]?.includes(" "), "dos columnas a 1440 px");
+  assertCheck(
+    pendingReplacementState.currentPhotoVisible &&
+      pendingReplacementState.staleResultHidden &&
+      pendingReplacementState.analyzeEnabled,
+    "reemplazo durante una petición sin resultado obsoleto",
+  );
+  assertCheck(
+    uncertainState.title === "Resultado incierto" &&
+      uncertainState.hasSecondary &&
+      !uncertainState.exposesInternalId,
+    "presentación accesible del resultado incierto",
+  );
+  assertCheck(
+    typeof acceptedTitle === "string" && acceptedTitle.startsWith("Clasificación orientativa:"),
+    "presentación de una clasificación aceptada",
+  );
+  if (outsideDomainImage) {
+    assertCheck(
+      outsideDomainState?.title === "No se pudo confirmar la hoja" &&
+        outsideDomainState.hasRequestedMessage &&
+        outsideDomainState.hidesCoffeeScores &&
+        !outsideDomainState.exposesInternalId,
+      "rechazo inicial sin categorías de café",
+    );
+    assertCheck(
+      outsideDomainAnalyzedState?.title === "Resultado con alcance limitado" &&
+        outsideDomainAnalyzedState.hasSuggestedCategory &&
+        outsideDomainAnalyzedState.showsCoffeeScores &&
+        outsideDomainAnalyzedState.keepsDomainWarning &&
+        !outsideDomainAnalyzedState.exposesInternalId,
+      "comparación limitada con advertencia y sin identificadores internos",
+    );
+  }
+  assertCheck(connectionError, "recuperación visible ante desconexión");
+  assertCheck(
+    keyboardLabel?.id === "leaf-photo" && Boolean(keyboardLabel.ariaLabel),
+    "foco y etiqueta del selector por teclado",
+  );
+  assertCheck(
+    revocationState.storedChoice === "declined" &&
+      revocationState.uploadDisabled &&
+      revocationState.selectionCleared,
+    "retirada de consentimiento",
+  );
+
   const report = {
     url: "http://localhost:3000",
     consent: consentState,
     responsiveGridColumns: responsive,
     replacementWorked: true,
+    pendingReplacementState,
     uncertainState,
     acceptedTitle,
     outsideDomainState,
+    outsideDomainAnalyzedState,
     connectionError,
     keyboardFocus: keyboardLabel,
     revocation: revocationState,

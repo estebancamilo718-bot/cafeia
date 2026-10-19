@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isPrediction } from "./prediction.ts";
+import { isPrediction, isPredictionForRequest } from "./prediction.ts";
 
 const accepted = {
   status: "classified",
@@ -54,4 +54,72 @@ test("rejects an outside-domain response that leaks a coffee category", () => {
     }),
     false,
   );
+});
+
+test("accepts an explicitly requested limited analysis with three scores", () => {
+  assert.equal(
+    isPrediction({
+      ...accepted,
+      status: "outside_domain_analyzed",
+      is_supported_image: false,
+      domain_score: 0.31,
+      message: "La imagen no coincide con los ejemplos conocidos.",
+    }),
+    true,
+  );
+});
+
+test("rejects a limited analysis that pretends the domain was confirmed", () => {
+  assert.equal(
+    isPrediction({
+      ...accepted,
+      status: "outside_domain_analyzed",
+      is_supported_image: true,
+      domain_score: 0.31,
+      message: "Resultado limitado.",
+    }),
+    false,
+  );
+});
+
+test("rejects a regular classification below the domain threshold", () => {
+  assert.equal(
+    isPrediction({
+      ...accepted,
+      domain_score: 0.31,
+    }),
+    false,
+  );
+});
+
+test("rejects an outside-domain response that reaches the domain threshold", () => {
+  assert.equal(
+    isPrediction({
+      status: "outside_domain",
+      is_supported_image: false,
+      domain_score: 0.65,
+      domain_threshold: 0.65,
+      message: "Fuera del dominio",
+      category: null,
+      category_label: null,
+      score: null,
+      scores: [],
+      is_uncertain: true,
+      uncertainty_threshold: 0.7,
+    }),
+    false,
+  );
+});
+
+test("only accepts a limited comparison after an explicit request", () => {
+  const limited = {
+    ...accepted,
+    status: "outside_domain_analyzed",
+    is_supported_image: false,
+    domain_score: 0.31,
+    message: "La imagen no coincide con los ejemplos conocidos.",
+  };
+
+  assert.equal(isPredictionForRequest(limited, false), false);
+  assert.equal(isPredictionForRequest(limited, true), true);
 });

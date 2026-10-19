@@ -13,7 +13,7 @@ import {
 import { PrivacyConsent } from "../components/privacy-consent";
 import { analysisFailureMessage, validateSelectedImage } from "../lib/analysis-input";
 import { LatestRequestCoordinator } from "../lib/latest-request";
-import { isPrediction, type Prediction } from "../lib/prediction";
+import { isPredictionForRequest, type Prediction } from "../lib/prediction";
 import {
   canAnalyzeWithConsent,
   parseStoredPrivacyConsent,
@@ -127,6 +127,14 @@ export default function Home() {
     if (storedChoice === null) setPrivacyDialogOpen(true);
   }, []);
 
+  useEffect(() => {
+    if (loading || (!result && !error)) return;
+    const frame = window.requestAnimationFrame(() => {
+      document.querySelector<HTMLElement>("#result-title")?.focus();
+    });
+    return () => window.cancelAnimationFrame(frame);
+  }, [error, loading, result]);
+
   function savePrivacyChoice(choice: Exclude<PrivacyConsentChoice, null>) {
     try {
       window.localStorage.setItem(PRIVACY_CONSENT_STORAGE_KEY, choice);
@@ -204,13 +212,13 @@ export default function Home() {
     useSelectedFile(event.dataTransfer.files?.[0] ?? null);
   }
 
-  async function analyze(event: FormEvent) {
-    event.preventDefault();
+  async function submitAnalysis(analyzeOutsideDomain = false) {
     if (!consentAccepted) {
       setPrivacyDialogOpen(true);
       return;
     }
     if (!file) return;
+    if (analyzeOutsideDomain && result?.status !== "outside_domain") return;
 
     const requestTicket = requestCoordinatorRef.current.begin();
     if (!requestTicket) return;
@@ -219,6 +227,7 @@ export default function Home() {
     setResult(null);
     const body = new FormData();
     body.append("file", file);
+    if (analyzeOutsideDomain) body.append("analyze_outside_domain", "true");
 
     try {
       const response = await fetch(`${API_URL}/predict`, {
@@ -228,7 +237,7 @@ export default function Home() {
       });
       const payload: unknown = await response.json().catch(() => null);
       if (!response.ok) throw new Error(errorMessage(payload));
-      if (!isPrediction(payload)) {
+      if (!isPredictionForRequest(payload, analyzeOutsideDomain)) {
         throw new Error("No pudimos leer el resultado. Inténtalo de nuevo.");
       }
       if (requestCoordinatorRef.current.isCurrent(requestTicket)) {
@@ -245,9 +254,15 @@ export default function Home() {
     }
   }
 
+  function analyze(event: FormEvent) {
+    event.preventDefault();
+    void submitAnalysis(false);
+  }
+
   const relatedGuideId = result && result.status !== "outside_domain"
     ? GUIDE_BY_CATEGORY[result.category]
     : undefined;
+  const isLimitedResult = result?.status === "outside_domain_analyzed";
 
   return (
     <>
@@ -463,18 +478,29 @@ export default function Home() {
                       <span className="result-status-icon" aria-hidden="true">!</span>
                       <span>Imagen fuera del alcance</span>
                     </div>
-                    <h2 id="result-title" className="mt-4 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
+                    <h2 id="result-title" tabIndex={-1} className="mt-4 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
                       No se pudo confirmar la hoja
                     </h2>
                     <p className="mt-3 text-sm leading-6 text-[#52655d]">{result.message}</p>
                     <p className="mt-4 border-t border-[#b98927]/20 pt-3 text-sm leading-5 text-[#6b511b]">
-                      No mostramos una categoría ni puntuaciones porque la imagen no pasó el filtro experimental de dominio. El filtro reduce errores evidentes, pero no reconoce todos los objetos ni garantiza que una imagen aceptada sea café.
+                      La fotografía puede ser una hoja de café tomada en condiciones diferentes a los ejemplos conocidos. Puedes intentar otra foto o pedir una comparación limitada con las tres categorías.
                     </p>
                   </div>
                   <div className="mt-5 grid gap-3 sm:grid-cols-2">
                     <button type="button" onClick={() => reset(true)} className="secondary-button">
                       Cargar otra fotografía
                     </button>
+                    <button
+                      type="button"
+                      onClick={() => void submitAnalysis(true)}
+                      aria-describedby="outside-domain-analysis-note"
+                      className="primary-button"
+                    >
+                      Analizar de todos modos
+                    </button>
+                    <p id="outside-domain-analysis-note" className="text-xs leading-5 text-[#71827b] sm:col-span-2">
+                      Esta opción no confirma que sea café. Solo muestra cómo la compara el modelo con hoja sana, roya y daño por ácaro rojo.
+                    </p>
                     <a href="#guia" className="text-button">
                       Consultar las tres categorías
                       <svg className="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
@@ -483,21 +509,33 @@ export default function Home() {
                 </div>
               ) : result ? (
                 <div className="mt-5">
-                  <div className={`result-summary ${result.is_uncertain ? "is-uncertain" : "is-accepted"}`}>
+                  <div className={`result-summary ${isLimitedResult || result.is_uncertain ? "is-uncertain" : "is-accepted"}`}>
                     <div className="result-summary__status">
                       <span className="result-status-icon" aria-hidden="true">
-                        {result.is_uncertain ? "?" : "✓"}
+                        {isLimitedResult ? "!" : result.is_uncertain ? "?" : "✓"}
                       </span>
-                      <span>{result.is_uncertain ? "Revisión recomendada" : "Análisis completado"}</span>
+                      <span>
+                        {isLimitedResult
+                          ? result.is_uncertain
+                            ? "Comparación limitada · revisión recomendada"
+                            : "Comparación limitada"
+                          : result.is_uncertain
+                            ? "Revisión recomendada"
+                            : "Análisis completado"}
+                      </span>
                     </div>
-                    <h2 id="result-title" className="mt-4 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
-                      {result.is_uncertain
-                        ? "Resultado incierto"
-                        : `Clasificación orientativa: ${result.category_label}`}
+                    <h2 id="result-title" tabIndex={-1} className="mt-4 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
+                      {isLimitedResult
+                        ? result.is_uncertain
+                          ? "Resultado incierto"
+                          : "Resultado con alcance limitado"
+                        : result.is_uncertain
+                          ? "Resultado incierto"
+                          : `Clasificación orientativa: ${result.category_label}`}
                     </h2>
-                    {result.is_uncertain && (
+                    {(isLimitedResult || result.is_uncertain) && (
                       <p className="mt-2 text-sm font-bold text-[#52655d]">
-                        Categoría más probable: {result.category_label}
+                        {isLimitedResult ? "Categoría sugerida" : "Categoría más probable"}: {result.category_label}
                       </p>
                     )}
                     <div className="mt-4 flex items-end justify-between gap-4 border-t border-current/10 pt-4">
@@ -507,6 +545,11 @@ export default function Home() {
                       </div>
                       <span className="text-right text-xs leading-4 text-[#71827b]">Umbral provisional<br />{formatScore(result.uncertainty_threshold)}</span>
                     </div>
+                    {isLimitedResult && (
+                      <p className="mt-4 border-t border-[#b98927]/20 pt-3 text-sm leading-5 text-[#6b511b]">
+                        El sistema no confirmó que la fotografía se parezca suficientemente a sus ejemplos de hojas de café. Estas puntuaciones solo muestran la comparación solicitada entre las tres categorías y no confirman que la imagen sea café.
+                      </p>
+                    )}
                     {result.is_uncertain && (
                       <p className="mt-4 border-t border-[#b98927]/20 pt-3 text-sm leading-5 text-[#6b511b]">
                         La puntuación mayor no alcanzó el umbral provisional de {formatScore(result.uncertainty_threshold)}. Prueba otra foto o solicita revisión humana.
@@ -531,6 +574,7 @@ export default function Home() {
                           aria-valuemin={0}
                           aria-valuemax={100}
                           aria-valuenow={Math.round(item.score * 100)}
+                          aria-valuetext={formatScore(item.score)}
                           className="h-2 overflow-hidden rounded-full bg-[#e4e9e6]"
                         >
                           <div className="score-bar h-full rounded-full" style={{ width: `${Math.max(1, item.score * 100)}%` }} />
@@ -539,7 +583,7 @@ export default function Home() {
                     ))}
                   </div>
 
-                  {!result.is_uncertain && (
+                  {!isLimitedResult && !result.is_uncertain && (
                     <p className="mt-5 border-l-2 border-[#55806f] bg-[#f2f6f3] px-4 py-3 text-sm leading-5 text-[#40564e]">
                       Toma esta lectura como un primer punto de comparación. Si notas cambios en el cultivo, revisa varias hojas y consulta a un profesional del café.
                     </p>
@@ -549,8 +593,8 @@ export default function Home() {
                     <button type="button" onClick={() => reset(true)} className="secondary-button">
                       Analizar otra fotografía
                     </button>
-                    <a href={result.is_uncertain || !relatedGuideId ? "#guia" : `#${relatedGuideId}`} className="text-button">
-                      {result.is_uncertain ? "Consultar categorías" : `Ver ficha de ${result.category_label.toLocaleLowerCase("es-CO")}`}
+                    <a href={isLimitedResult || result.is_uncertain || !relatedGuideId ? "#guia" : `#${relatedGuideId}`} className="text-button">
+                      {isLimitedResult || result.is_uncertain ? "Consultar categorías" : `Ver ficha de ${result.category_label.toLocaleLowerCase("es-CO")}`}
                       <svg className="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
                     </a>
                   </div>
@@ -559,7 +603,7 @@ export default function Home() {
                 <div className="result-stage">
                   <div className="max-w-sm text-center">
                     <span className="empty-state-icon is-error" aria-hidden="true">!</span>
-                    <h2 id="result-title" className="mt-5 text-2xl font-black tracking-[-0.03em] text-[#7b3825]">Análisis no disponible</h2>
+                    <h2 id="result-title" tabIndex={-1} className="mt-5 text-2xl font-black tracking-[-0.03em] text-[#7b3825]">Análisis no disponible</h2>
                     <p className="mt-2 text-sm leading-6 text-[#667871]">Revisa el mensaje junto al selector y vuelve a intentarlo.</p>
                   </div>
                 </div>

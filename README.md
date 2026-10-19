@@ -18,6 +18,8 @@ La interfaz actual presenta dos destinos: **Analizar** y **Guía de hojas**. Las
 
 El backend comprueba los hashes, la compatibilidad del filtro y el orden de clases antes de atender solicitudes. Ambos artefactos se cargan una vez durante el arranque y las fotografías recibidas se procesan en memoria, sin guardarlas.
 
+Cuando el filtro no reconoce suficientemente el aspecto de una fotografía, la primera respuesta sigue ocultando categorías y puntuaciones. La interfaz permite solicitar después **Analizar de todos modos**: esta segunda petición devuelve una comparación limitada con las tres clases, conserva `is_supported_image=false` y advierte que no confirma que la imagen sea una hoja de café. Esta salida no cambia el modelo, el filtro ni sus umbrales.
+
 ## Arquitectura
 
 ```text
@@ -92,7 +94,7 @@ npm.cmd run test:request-flow
 npm.cmd run build
 ```
 
-`tests/backend/test_api_contract.py` usa un predictor falso y no demuestra inferencia real. `tests/backend/test_checkpoint_inference.py` carga el checkpoint y el filtro desplegables y ejecuta una inferencia real sobre una imagen sintética creada en memoria; comprueba integración, no exactitud. `tests/backend/test_domain_guard.py` verifica el cálculo de similitud, persistencia y equivalencia de logits. La CI reproduce estas comprobaciones sin dataset privado ni entrenamiento.
+`tests/backend/test_api_contract.py` usa principalmente predictores falsos para comprobar el contrato HTTP; además prueba de forma determinista que el permiso de comparación limitada no altera logits ni el score de dominio. No demuestra exactitud. `tests/backend/test_checkpoint_inference.py` carga el checkpoint y el filtro desplegables y ejecuta una inferencia real sobre una imagen sintética creada en memoria; comprueba integración, no exactitud. `tests/backend/test_domain_guard.py` verifica el cálculo de similitud, persistencia y equivalencia de logits. La CI reproduce estas comprobaciones sin dataset privado ni entrenamiento.
 
 La comprobación E2E local con fotografías reales se mantiene separada porque requiere `data/raw` y la evidencia original, ambos excluidos de Git. `src/verify_val_e2e.py` fija primero 15 imágenes de VAL sin cargar el modelo y después compara inferencia directa con una API HTTP real. Sus resultados están en [reports/VAL_E2E_INTEGRATION.md](reports/VAL_E2E_INTEGRATION.md); no son una nueva evaluación global ni consultan TEST.
 
@@ -115,6 +117,8 @@ Estas cifras describen exclusivamente ese conjunto. Las puntuaciones softmax no 
 
 La barrera de dominio se calibró sin TEST. En su evaluación de desarrollo aceptó 141/153 hojas de café de una porción de VAL y rechazó 200/200 negativos externos concretos: hojas PlantVillage ajenas al café, perros, gatos y escenas/objetos. Estos resultados justifican su integración conservadora, pero no prueban rechazo universal. Véase [el informe del filtro](reports/DOMAIN_GUARD_RESULTS.md).
 
+Una comparación posterior agregó referencias auditadas de CoffeeLeaf-CO a un filtro candidato: la aceptación de 508 fotografías reservadas por imagen de esa fuente subió de 42,72 % a 90,55 %, mientras los 200 negativos concretos continuaron rechazados. El candidato no se activó porque falta la comprobación externa fijada previamente y el margen de los scores negativos se estrechó. Esto mejora cobertura del filtro dentro de esa fuente, no la exactitud del clasificador de tres clases. Véase [la auditoría y comparación](reports/COFFEELEAF_DOMAIN_GUARD_EXPERIMENT.md).
+
 ## Datos, modelos y Git
 
 Git incluye código, manifiesto, reportes, tres fotografías atribuidas de la guía, el checkpoint del clasificador y el artefacto del filtro necesarios para desplegar. `.gitignore` excluye el dataset completo, `.venv`, `node_modules`, `.next`, descargas de procedencia, experimentos y checkpoints adicionales.
@@ -123,14 +127,19 @@ Los materiales locales excluidos siguen siendo evidencia académica y no deben e
 
 ## Despliegue público
 
-El repositorio está **preparado**, pero no se ha publicado la aplicación:
+La aplicación está publicada en estos servicios:
+
+- Frontend: <https://cafeia.vercel.app>
+- Backend: <https://cafeia-jiwk.onrender.com>
+
+La configuración reproducible permanece en el repositorio:
 
 - Render puede crear el backend desde `render.yaml`.
 - Vercel debe usar `frontend` como Root Directory y definir `NEXT_PUBLIC_API_URL`.
 - Render debe recibir `CORS_ALLOWED_ORIGINS` con el origen HTTPS exacto de Vercel.
 - Render carga y verifica tanto `MODEL_PATH`/`MODEL_SHA256` como `DOMAIN_GUARD_PATH`/`DOMAIN_GUARD_SHA256`.
 
-Las URLs de ejemplo no representan servicios activos. Después de un despliegue autorizado se debe comprobar `/health`, el hash del modelo, CORS, memoria y el flujo real desde el dominio asignado.
+Render puede entrar en reposo en el plan gratuito; la primera predicción después de un periodo sin uso puede tardar mientras el servicio inicia y carga los artefactos. Las solicitudes siguientes suelen ser más rápidas. Tras cada despliegue se debe comprobar `/health`, el hash del modelo, CORS y el flujo real desde Vercel.
 
 ## Limitaciones
 
@@ -149,7 +158,10 @@ Las URLs de ejemplo no representan servicios activos. Después de un despliegue 
 - [Auditoría de confiabilidad web](reports/RELIABILITY_AUDIT.md)
 - [Resultado del experimento v2](reports/V2_PREPROCESSING_RESULTS.md)
 - [Filtro experimental de dominio](reports/DOMAIN_GUARD_RESULTS.md)
+- [Protocolo de generalización externa](reports/DOMAIN_GENERALIZATION_V2_PROTOCOL.md)
+- [Auditoría CoffeeLeaf-CO y candidato del filtro](reports/COFFEELEAF_DOMAIN_GUARD_EXPERIMENT.md)
+- [Comparación limitada tras un rechazo](reports/DOMAIN_GUARD_LIMITED_OVERRIDE.md)
 
 ## Licencia
 
-Las licencias y atribuciones de terceros están documentadas, pero el código original de este repositorio aún no tiene una licencia propia. La persona autora debe decidirla antes de una publicación abierta; no debe asumirse que la licencia CC BY 4.0 del dataset se aplica al código.
+Las licencias y atribuciones de terceros están documentadas, pero el código original de este repositorio aún no tiene una licencia propia. Como el repositorio ya es público, elegir una licencia de código es una decisión pendiente urgente: sin ella no se conceden permisos explícitos de reutilización. No debe asumirse que la licencia CC BY 4.0 del dataset se aplica al código.

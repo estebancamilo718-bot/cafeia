@@ -43,13 +43,26 @@ export type OutsideDomainPrediction = PredictionBase & {
   scores: [];
 };
 
-export type Prediction = CoffeePrediction | OutsideDomainPrediction;
+export type OutsideDomainAnalyzedPrediction = PredictionBase & {
+  status: "outside_domain_analyzed";
+  is_supported_image: false;
+  message: string;
+  category: string;
+  category_label: string;
+  score: number;
+  scores: ClassScore[];
+};
+
+export type Prediction =
+  | CoffeePrediction
+  | OutsideDomainPrediction
+  | OutsideDomainAnalyzedPrediction;
 
 export function isPrediction(payload: unknown): payload is Prediction {
   if (typeof payload !== "object" || payload === null) return false;
   const candidate = payload as Partial<Prediction>;
   if (
-    !["classified", "uncertain", "outside_domain"].includes(candidate.status ?? "") ||
+    !["classified", "uncertain", "outside_domain", "outside_domain_analyzed"].includes(candidate.status ?? "") ||
     typeof candidate.is_supported_image !== "boolean" ||
     typeof candidate.domain_score !== "number" ||
     !Number.isFinite(candidate.domain_score) ||
@@ -71,6 +84,7 @@ export function isPrediction(payload: unknown): payload is Prediction {
   if (candidate.status === "outside_domain") {
     return (
       candidate.is_supported_image === false &&
+      candidate.domain_score < candidate.domain_threshold &&
       candidate.is_uncertain === true &&
       typeof candidate.message === "string" &&
       candidate.message.length > 0 &&
@@ -81,9 +95,16 @@ export function isPrediction(payload: unknown): payload is Prediction {
     );
   }
 
+  const isOutsideDomainAnalyzed = candidate.status === "outside_domain_analyzed";
   if (
-    candidate.is_supported_image !== true ||
-    candidate.message !== null ||
+    (isOutsideDomainAnalyzed
+      ? candidate.is_supported_image !== false ||
+        typeof candidate.message !== "string" ||
+        candidate.message.length === 0 ||
+        candidate.domain_score >= candidate.domain_threshold
+      : candidate.is_supported_image !== true ||
+        candidate.message !== null ||
+        candidate.domain_score < candidate.domain_threshold) ||
     typeof candidate.category !== "string" ||
     !PREDICTION_CATEGORIES.has(candidate.category) ||
     typeof candidate.category_label !== "string" ||
@@ -128,6 +149,17 @@ export function isPrediction(payload: unknown): payload is Prediction {
     Math.abs(candidate.score - maximumScore) <= 1e-7 &&
     Math.abs(scoreSum - 1) <= 1e-5 &&
     candidate.is_uncertain === (candidate.score < candidate.uncertainty_threshold) &&
-    candidate.status === (candidate.is_uncertain ? "uncertain" : "classified")
+    (isOutsideDomainAnalyzed ||
+      candidate.status === (candidate.is_uncertain ? "uncertain" : "classified"))
+  );
+}
+
+export function isPredictionForRequest(
+  payload: unknown,
+  analyzeOutsideDomain: boolean,
+): payload is Prediction {
+  return (
+    isPrediction(payload) &&
+    (analyzeOutsideDomain || payload.status !== "outside_domain_analyzed")
   );
 }

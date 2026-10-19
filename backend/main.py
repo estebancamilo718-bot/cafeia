@@ -9,9 +9,9 @@ from pathlib import Path
 from typing import Literal
 
 import torch
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 from PIL import Image, ImageOps, UnidentifiedImageError
 
 from src.common import ROOT, load_checkpoint, transform
@@ -37,26 +37,109 @@ OUTSIDE_DOMAIN_MESSAGE = (
     "No se pudo confirmar que la imagen corresponda a una hoja de café. "
     "Carga una fotografía de una sola hoja de café."
 )
+OUTSIDE_DOMAIN_ANALYZED_MESSAGE = (
+    "No se pudo confirmar que la imagen corresponda a una hoja de café. "
+    "Esta comparación se muestra porque elegiste analizarla de todos modos "
+    "y solo distingue hoja sana, roya y daño por ácaro rojo."
+)
 
 
 class ClassScore(BaseModel):
     category: str
     label: str
-    score: float
+    score: float = Field(ge=0.0, le=1.0)
 
 
 class PredictionResponse(BaseModel):
-    status: Literal["classified", "uncertain", "outside_domain"]
+    status: Literal[
+        "classified",
+        "uncertain",
+        "outside_domain",
+        "outside_domain_analyzed",
+    ]
     is_supported_image: bool
-    domain_score: float
-    domain_threshold: float
+    domain_score: float = Field(ge=-1.0, le=1.0)
+    domain_threshold: float = Field(ge=-1.0, le=1.0)
     message: str | None = None
     category: str | None = None
     category_label: str | None = None
     score: float | None = None
     scores: list[ClassScore] = Field(default_factory=list)
     is_uncertain: bool
-    uncertainty_threshold: float
+    uncertainty_threshold: float = Field(ge=0.0, le=1.0)
+
+    @model_validator(mode="after")
+    def validate_response_contract(self) -> "PredictionResponse":
+        has_result = self.status != "outside_domain"
+        result_fields_are_present = (
+            self.category is not None
+            and self.category_label is not None
+            and self.score is not None
+            and len(self.scores) == len(EXPECTED_CLASS_ORDER)
+        )
+
+        if self.status == "outside_domain":
+            if (
+                self.is_supported_image
+                or self.domain_score >= self.domain_threshold
+                or not self.message
+                or self.category is not None
+                or self.category_label is not None
+                or self.score is not None
+                or self.scores
+                or not self.is_uncertain
+                or self.uncertainty_threshold != UNCERTAINTY_THRESHOLD
+            ):
+                raise ValueError("Una imagen fuera del dominio no puede exponer una clasificación")
+            return self
+
+        if not has_result or not result_fields_are_present:
+            raise ValueError("La respuesta de clasificación está incompleta")
+        if self.uncertainty_threshold != UNCERTAINTY_THRESHOLD:
+            raise ValueError("El umbral de incertidumbre no coincide con el configurado")
+
+        returned_categories = [item.category for item in self.scores]
+        if returned_categories != EXPECTED_CLASS_ORDER:
+            raise ValueError("Las puntuaciones no respetan el orden de clases")
+        if any(item.label != CLASS_NAMES[item.category] for item in self.scores):
+            raise ValueError("Una etiqueta legible no coincide con su categoría")
+
+        score_by_category = {item.category: item.score for item in self.scores}
+        if self.category not in score_by_category:
+            raise ValueError("La categoría seleccionada no aparece en las puntuaciones")
+        if self.category_label != CLASS_NAMES[self.category]:
+            raise ValueError("La etiqueta seleccionada no coincide con la categoría")
+        if abs(sum(score_by_category.values()) - 1.0) > 1e-5:
+            raise ValueError("Las puntuaciones no suman uno")
+
+        selected_score = score_by_category[self.category]
+        maximum_score = max(score_by_category.values())
+        if (
+            self.score is None
+            or abs(self.score - selected_score) > 1e-7
+            or abs(self.score - maximum_score) > 1e-7
+        ):
+            raise ValueError("La categoría seleccionada no coincide con la puntuación mayor")
+        if self.is_uncertain != (self.score < self.uncertainty_threshold):
+            raise ValueError("El estado de incertidumbre no coincide con la puntuación")
+
+        if self.status == "outside_domain_analyzed":
+            if (
+                self.is_supported_image
+                or self.domain_score >= self.domain_threshold
+                or not self.message
+            ):
+                raise ValueError("La comparación limitada debe conservar el rechazo de dominio")
+            return self
+
+        if (
+            not self.is_supported_image
+            or self.domain_score < self.domain_threshold
+            or self.message is not None
+            or self.status != ("uncertain" if self.is_uncertain else "classified")
+        ):
+            raise ValueError("La clasificación normal contradice el estado de dominio")
+        return self
 
 
 class HealthResponse(BaseModel):
@@ -129,13 +212,19 @@ class Predictor:
             )
         self.domain_guard_method = str(self.domain_guard.metadata.get("method", "unknown"))
 
-    def predict(self, image: Image.Image) -> PredictionResponse:
+    def predict(
+        self,
+        image: Image.Image,
+        *,
+        analyze_outside_domain: bool = False,
+    ) -> PredictionResponse:
         tensor = self.preprocess(image).unsqueeze(0)
         with torch.inference_mode():
             logits, embedding = mobilenet_logits_and_embedding(self.model, tensor)
             domain_score = float(self.domain_guard.scores(embedding)[0])
 
-        if domain_score < self.domain_guard.threshold:
+        outside_domain = domain_score < self.domain_guard.threshold
+        if outside_domain and not analyze_outside_domain:
             return PredictionResponse(
                 status="outside_domain",
                 is_supported_image=False,
@@ -156,10 +245,15 @@ class Predictor:
             for index, category in enumerate(self.classes)
         ]
         return PredictionResponse(
-            status="uncertain" if best_score < UNCERTAINTY_THRESHOLD else "classified",
-            is_supported_image=True,
+            status=(
+                "outside_domain_analyzed"
+                if outside_domain
+                else "uncertain" if best_score < UNCERTAINTY_THRESHOLD else "classified"
+            ),
+            is_supported_image=not outside_domain,
             domain_score=domain_score,
             domain_threshold=self.domain_guard.threshold,
+            message=OUTSIDE_DOMAIN_ANALYZED_MESSAGE if outside_domain else None,
             category=best_category,
             category_label=CLASS_NAMES[best_category],
             score=best_score,
@@ -311,7 +405,11 @@ def health(request: Request) -> HealthResponse:
 
 
 @app.post("/predict", response_model=PredictionResponse)
-async def predict(request: Request, file: UploadFile = File(...)) -> PredictionResponse:
+async def predict(
+    request: Request,
+    file: UploadFile = File(...),
+    analyze_outside_domain: bool = Form(False),
+) -> PredictionResponse:
     filename = file.filename or ""
     extension = Path(filename).suffix.lower()
     if extension not in ALLOWED_EXTENSIONS:
@@ -328,4 +426,7 @@ async def predict(request: Request, file: UploadFile = File(...)) -> PredictionR
 
     image = _decode_image(data, ALLOWED_EXTENSIONS[extension])
     predictor: Predictor = request.app.state.predictor
-    return predictor.predict(image)
+    return predictor.predict(
+        image,
+        analyze_outside_domain=analyze_outside_domain,
+    )
