@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 72 72" role="img" aria-labelledby="title description">
+  <title id="title">Símbolo de CaféIA</title>
+  <desc id="description">Una rama de café con dos hojas y un fruto, dentro de un recuadro verde.</desc>
+  <rect width="72" height="72" rx="20" fill="#123b2e"/>
+  <path d="M19 51c11-10 21-20 32-32" fill="none" stroke="#f2ead9" stroke-width="3.2" stroke-linecap="round"/>
+  <path d="M20.4 45.8C11.7 44.6 9 36.5 10.6 28c8.4-.3 16 3.8 17.5 12.2-1.2 2.4-3.9 4.6-7.7 5.6Z" fill="#f2ead9"/>
+  <path d="M41.6 27.2C41.7 17.9 49.2 13.1 58 13c1 8.5-2.7 16.5-11.3 18.9-2.2-.7-4-2.2-5.1-4.7Z" fill="#9fc470"/>
+  <path d="M25 42.5c-4.1-3.8-8.1-7-12.1-9.4M46 27.8c3.5-4.4 6.6-8.2 9.6-11.2" fill="none" stroke="#123b2e" stroke-width="1.55" stroke-linecap="round" opacity=".62"/>
+  <circle cx="44.8" cy="43.6" r="10.2" fill="#bf6042" stroke="#f2ead9" stroke-width="2.5"/>
+  <path d="M41.7 33.9c.7-3.4 3.3-5.6 6.6-6.4" fill="none" stroke="#f2ead9" stroke-width="2.2" stroke-linecap="round"/>
+  <circle cx="45" cy="43.5" r="2.2" fill="#f2ead9"/>
+</svg>

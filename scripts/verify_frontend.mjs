@@ -226,10 +226,12 @@ try {
     await screenshot(client, `initial_${width}.png`);
   }
 
-  await setViewport(client, 1440);
-  await evaluate(client, "document.querySelector('#guia')?.scrollIntoView({ block: 'start' })");
-  await delay(200);
-  await screenshot(client, "guide_1440.png");
+  for (const width of [390, 768, 1440]) {
+    await setViewport(client, width);
+    await evaluate(client, "document.querySelector('#guia')?.scrollIntoView({ block: 'start' })");
+    await delay(200);
+    await screenshot(client, `guide_${width}.png`);
+  }
   await evaluate(client, "window.scrollTo(0, 0)");
 
   await setViewport(client, 390);

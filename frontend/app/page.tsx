@@ -32,11 +32,11 @@ const GUIDE_CARDS = [
   {
     id: "guia-sana",
     eyebrow: "Hoja sana",
-    title: "Una referencia, no un certificado",
+    title: "Aspecto uniforme y buen color",
     image: "/guide/hoja-sana-rocole-c10p12h1.jpg",
     alt: "Hoja de café verde fotografiada en campo, ejemplo de TRAIN anotado como sano en RoCoLe",
     description:
-      "En RoCoLe, esta fotografía está anotada como sana. Sirve para comparar la apariencia general con las otras dos categorías del clasificador.",
+      "Una hoja de referencia para comparar el color, la superficie y la forma general frente a las otras categorías.",
     signs: [
       "Tejido predominantemente verde y sin las señales habituales de roya o daño por ácaro descritas en esta guía.",
       "El color, el brillo y la forma pueden variar por edad, nutrición, luz y otras condiciones que CaféIA no distingue.",
@@ -49,11 +49,11 @@ const GUIDE_CARDS = [
   {
     id: "guia-roya",
     eyebrow: "Roya del café",
-    title: "Observa ambas caras de la hoja",
+    title: "Revisa el haz y el envés",
     image: "/guide/roya-rocole-c10p27e2.jpg",
     alt: "Envés de una hoja de café con manchas, ejemplo de TRAIN anotado como roya nivel 2 en RoCoLe",
     description:
-      "La roya es una enfermedad foliar. El ejemplo pertenece a la categoría roya del proyecto y conserva su anotación original verificada.",
+      "La roya puede mostrar señales distintas en cada cara de la hoja. Revisa el patrón, la forma y la distribución de las manchas.",
     signs: [
       "En el envés pueden aparecer manchas redondeadas amarillas con aspecto de polvillo; en el haz suelen verse amarillas y lisas.",
       "Algunas manchas desarrollan un centro pardo. Otras afectaciones pueden parecerse, por lo que la fotografía no confirma un diagnóstico.",
@@ -66,11 +66,11 @@ const GUIDE_CARDS = [
   {
     id: "guia-acaro",
     eyebrow: "Daño por ácaro rojo",
-    title: "Una categoría especialmente difícil",
+    title: "Observa el color y la textura",
     image: "/guide/acaro-rojo-rocole-c11p9h2.jpg",
     alt: "Hoja de café con zonas pardas y rojizas, ejemplo de TRAIN anotado como ácaro rojo en RoCoLe",
     description:
-      "RoCoLe denomina esta categoría ácaro rojo. Su documentación no confirma la especie, así que CaféIA tampoco la identifica.",
+      "Esta categoría reúne hojas con cambios de brillo y coloración parda o rojiza. La imagen por sí sola no confirma la causa.",
     signs: [
       "Cenicafé describe como señales habituales la pérdida de brillo y la coloración parda o rojiza, a veces más marcada junto a las nervaduras.",
       "Estos cambios pueden ser más visibles en hojas viejas y persistir aunque ya no se observen ácaros; por sí solos no confirman la causa.",
@@ -271,53 +271,55 @@ export default function Home() {
       </a>
 
       <header className="site-header sticky top-0 z-40">
-        <div className="mx-auto flex min-h-16 max-w-7xl items-center justify-between gap-4 px-4 sm:px-6 lg:px-8">
+        <div className="mx-auto flex min-h-[4.75rem] max-w-[90rem] items-center justify-between gap-4 px-4 sm:px-6 lg:px-10">
           <a href="#analisis" className="brand-link" aria-label="CaféIA, ir al analizador">
-            <span className="brand-mark" aria-hidden="true">
-              <span className="leaf-mark" />
-            </span>
+            <img src="/brand/cafeia-mark.svg" alt="" width={46} height={46} className="brand-symbol" />
             <span>
-              <span className="block text-[1.35rem] leading-none font-black tracking-[-0.045em] text-[#11382b]">CaféIA</span>
-              <span className="mt-1 hidden text-[0.64rem] leading-none font-bold tracking-[0.08em] text-[#687a73] uppercase sm:block">Asistente visual de café</span>
+              <span className="brand-wordmark">Café<span>IA</span></span>
+              <span className="brand-subtitle">Análisis de hojas de café</span>
             </span>
           </a>
 
-          <div className="flex items-center gap-2 sm:gap-5">
-            <nav aria-label="Navegación principal" className="flex items-center gap-1">
+          <nav aria-label="Navegación principal" className="header-nav">
               <a className="nav-link" href="#analisis">Analizar</a>
-              <a className="nav-link mobile-hidden-nav" href="#guia">Guía de hojas</a>
-            </nav>
-            <span className="status-label">
-              <span className="status-dot" aria-hidden="true" />
-              <span className="hidden min-[430px]:inline">Sistema de apoyo visual</span>
-              <span className="min-[430px]:hidden">Apoyo visual</span>
-            </span>
+              <a className="nav-link" href="#guia">Categorías</a>
+          </nav>
+
+          <div className="header-actions">
+            <button type="button" onClick={() => setPrivacyDialogOpen(true)} className="header-privacy">
+              Privacidad
+            </button>
+            <a href="#analisis" className="header-cta">
+              <span className="hidden sm:inline">Analizar una hoja</span>
+              <span className="sm:hidden">Analizar</span>
+              <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5" /></svg>
+            </a>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-7xl px-4 py-6 sm:px-6 sm:py-8 lg:px-8 lg:py-10">
+      <main className="mx-auto max-w-[90rem] px-4 py-6 sm:px-6 sm:py-8 lg:px-10 lg:py-10">
         <section id="analisis" aria-labelledby="analysis-title" className="scroll-mt-28 sm:scroll-mt-20">
-          <div className="analysis-intro mb-6 px-1 py-2 sm:mb-8 sm:px-0 sm:py-3">
-            <div className="grid items-end gap-5 lg:grid-cols-[minmax(0,1fr)_auto]">
+          <div className="analysis-intro mb-6 sm:mb-8">
+            <div className="analysis-hero">
               <div className="max-w-3xl">
-                <p className="eyebrow">Análisis asistido por inteligencia artificial</p>
-                <h1 id="analysis-title" className="mt-2 text-[2.15rem] leading-[1.04] font-black tracking-[-0.05em] text-[#11382b] sm:text-[2.75rem]">
+                <p className="eyebrow">Clasificación de hojas de café</p>
+                <h1 id="analysis-title" className="display-title mt-3">
                   Analiza una hoja de café
                 </h1>
-                <p className="mt-3 max-w-2xl text-[0.95rem] leading-6 text-[#52655d] sm:text-base">
-                  Sube una fotografía clara de una sola hoja. CaféIA compara sus patrones con tres categorías del conjunto RoCoLe y entrega un resultado orientativo.
+                <p className="hero-copy">
+                  Sube una fotografía clara de una sola hoja. CaféIA la compara con ejemplos de hoja sana, roya y daño por ácaro rojo.
                 </p>
-              </div>
-              <div className="trust-row" aria-label="Características del análisis">
-                <span>
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.9 8.3 7 10 4.1-1.7 7-5.4 7-10V6l-7-3Z"/><path d="m9.5 12 1.6 1.6 3.7-4"/></svg>
-                  La foto no se almacena
-                </span>
-                <span>
-                  <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="m4 15 4.5-4.5 3 3L14 11l6 6"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>
-                  JPG o PNG · máx. 10 MB
-                </span>
+                <div className="trust-row mt-5" aria-label="Características del análisis">
+                  <span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.9 8.3 7 10 4.1-1.7 7-5.4 7-10V6l-7-3Z"/><path d="m9.5 12 1.6 1.6 3.7-4"/></svg>
+                    La foto no se almacena
+                  </span>
+                  <span>
+                    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M4 5h16v14H4z"/><path d="m4 15 4.5-4.5 3 3L14 11l6 6"/><circle cx="15.5" cy="8.5" r="1.5"/></svg>
+                    JPG o PNG · máx. 10 MB
+                  </span>
+                </div>
               </div>
             </div>
           </div>
@@ -548,7 +550,7 @@ export default function Home() {
 
                   {!result.is_uncertain && (
                     <p className="mt-5 border-l-2 border-[#55806f] bg-[#f2f6f3] px-4 py-3 text-sm leading-5 text-[#40564e]">
-                      Este resultado es orientativo. Si observas daños o síntomas, solicita revisión de una persona experta.
+                      Toma esta lectura como un primer punto de comparación. Si notas cambios en el cultivo, revisa varias hojas y consulta a un profesional del café.
                     </p>
                   )}
 
@@ -593,31 +595,28 @@ export default function Home() {
         </section>
 
         <section id="guia" aria-labelledby="guide-title" className="guide-section mt-16 scroll-mt-28 py-10 sm:mt-20 sm:scroll-mt-20 sm:py-14">
-          <div className="grid gap-4 lg:grid-cols-[minmax(0,0.72fr)_minmax(20rem,0.28fr)] lg:items-end">
-            <div className="max-w-3xl">
-              <p className="eyebrow">Referencia educativa</p>
-              <h2 id="guide-title" className="mt-2 text-3xl font-black tracking-[-0.045em] text-[#11382b] sm:text-[2.5rem]">
-                Aprende a observar las hojas
+          <div className="max-w-3xl">
+              <h2 id="guide-title" className="category-title">
+                Explora las hojas por categoría
               </h2>
-              <p className="mt-3 text-sm leading-6 text-[#52655d] sm:text-base">
-                Consulta señales visuales habituales en ejemplos reales de TRAIN con anotación original verificada. Esta guía ayuda a comparar; no confirma diagnósticos.
+              <p className="category-subtitle">
+                Conoce las tres categorías que CaféIA puede comparar y revisa sus señales visuales habituales.
               </p>
-            </div>
-            <p className="guide-context">
-              <strong>Alcance:</strong> tres categorías del clasificador. Las variaciones por edad, luz, nutrición u otras afectaciones pueden no estar representadas.
-            </p>
           </div>
 
-          <div className="mt-8 grid items-start gap-5 lg:grid-cols-3">
+          <div className="category-grid">
             {GUIDE_CARDS.map((card) => (
               <article id={card.id} key={card.id} className="guide-card scroll-mt-28 overflow-hidden sm:scroll-mt-20">
-                <div className="relative overflow-hidden">
-                  <img src={card.image} alt={card.alt} width={1920} height={1080} loading="lazy" className="aspect-[16/10] w-full object-cover" />
-                  <span className="photo-label">Ejemplo RoCoLe · TRAIN</span>
+                <div className="category-visual">
+                  <img src={card.image} alt={card.alt} width={1920} height={1080} loading="lazy" />
+                  <span className="category-shade" aria-hidden="true" />
+                  <div className="category-heading">
+                    <span>Hoja de café</span>
+                    <h3>{card.eyebrow}</h3>
+                  </div>
                 </div>
-                <div className="p-5 sm:p-6">
-                  <p className="section-kicker">{card.eyebrow}</p>
-                  <h3 className="mt-1.5 text-xl font-black tracking-[-0.025em] text-[#11382b]">{card.title}</h3>
+                <div className="category-content">
+                  <p className="category-lead">{card.title}</p>
                   <p className="mt-3 text-sm leading-6 text-[#52655d]">{card.description}</p>
 
                   <details className="guide-details mt-5 border-t border-[#163f31]/10 pt-4">
@@ -645,22 +644,17 @@ export default function Home() {
               </article>
             ))}
           </div>
-
-          <div className="mt-6 flex gap-3 border-t border-[#ced8d3] pt-5 text-sm leading-6 text-[#5f7069]">
-            <svg className="mt-1 h-4 w-4 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
-            <p>Las explicaciones de Cenicafé describen información agronómica general. Las etiquetas de RoCoLe solo indican la categoría asignada a cada fotografía; “ácaro rojo” no identifica una especie concreta en la documentación del dataset.</p>
-          </div>
         </section>
       </main>
 
       <footer className="site-footer mt-12">
-        <div className="mx-auto flex max-w-7xl flex-col gap-3 px-4 py-7 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-8">
+        <div className="mx-auto flex max-w-[90rem] flex-col gap-3 px-4 py-7 text-sm sm:flex-row sm:items-center sm:justify-between sm:px-6 lg:px-10">
           <div className="flex items-center gap-2.5">
-            <span className="brand-mark is-footer" aria-hidden="true"><span className="leaf-mark" /></span>
-            <span className="font-extrabold">CaféIA</span>
+            <img src="/brand/cafeia-mark.svg" alt="" width={34} height={34} className="footer-logo" />
+            <span className="font-extrabold tracking-[-0.02em]">CaféIA</span>
           </div>
           <div className="flex flex-col items-start gap-2 sm:items-end">
-            <p className="max-w-2xl text-[#c7d5cf] sm:text-right">Herramienta de apoyo visual para tres categorías. Sus resultados son orientativos y no reemplazan la revisión de una persona experta.</p>
+            <p className="max-w-2xl text-[#c7d5cf] sm:text-right">Clasificación de imágenes en tres categorías de hojas de café. Las puntuaciones sirven como referencia y pueden contener errores.</p>
             <button type="button" onClick={() => setPrivacyDialogOpen(true)} className="footer-privacy-button">
               <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 3 5 6v5c0 4.6 2.9 8.3 7 10 4.1-1.7 7-5.4 7-10V6l-7-3Z"/></svg>
               Privacidad y consentimiento

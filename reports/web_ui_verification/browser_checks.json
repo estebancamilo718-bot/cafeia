@@ -13,7 +13,7 @@
   "responsiveGridColumns": {
     "390": "358px",
     "768": "342.5px 342.5px",
-    "1440": "596px 596px"
+    "1440": "660.5px 660.5px"
   },
   "replacementWorked": true,
   "uncertainState": {
@@ -21,7 +21,7 @@
     "hasSecondary": true,
     "exposesInternalId": false
   },
-  "acceptedTitle": "Clasificación orientativa: Roya",
+  "acceptedTitle": "Clasificación orientativa: Hoja sana",
   "outsideDomainState": {
     "title": "No se pudo confirmar la hoja",
     "hasRequestedMessage": true,
@@ -44,6 +44,8 @@
     "consent_1440.png",
     "consent_390.png",
     "guide_1440.png",
+    "guide_390.png",
+    "guide_768.png",
     "initial_1440.png",
     "initial_390.png",
     "initial_768.png",

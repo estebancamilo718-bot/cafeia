@@ -1,5 +1,7 @@
 # Verificación de la interfaz de CaféIA
 
+> **Actualización visual 2026-10-18:** se incorporó una cabecera completa, una marca SVG propia, una portada editorial inspirada en la jerarquía visual de AgroTolima y tarjetas fotográficas para las tres categorías. Se retiraron las expresiones “Sistema de apoyo visual” y “Referencia educativa”, así como el bloque general de aclaración solicitado. Las fuentes y atribuciones necesarias permanecen dentro de “Ver detalles”.
+
 > **Comprobación 2026-10-18:** la revisión automatizada se repitió contra el backend con el filtro de dominio cargado. Además de los estados aceptado, incierto y desconexión, se envió una fotografía externa de un perro: la página mostró “No se pudo confirmar la hoja”, incluyó la instrucción de cargar una sola hoja de café, ocultó las puntuaciones de las tres clases y no expuso identificadores internos.
 
 > **Comprobación 2026-10-14:** se rediseñó la interfaz del analizador con una identidad visual más sobria, jerarquía tipográfica consistente, paneles de entrada/resultado alineados, estados de carga/error/resultado unificados y una guía educativa secundaria. La revisión automatizada en Edge produjo capturas reales a 390, 768 y 1440 px y verificó el flujo contra el backend activo.
@@ -19,9 +21,9 @@
 | Pruebas frontend | 11/11 verificaciones pasaron, incluidas concurrencia, consentimiento y validación de las respuestas clasificadas o fuera de dominio |
 | Frontend local | HTTP 200 en `/` |
 | Contenido inicial | El HTML incluye “Analiza una hoja de café” antes de la guía |
-| Navegación | Incluye “Analizar” y “Guía de hojas”; la guía se oculta en la barra móvil para evitar cortes de texto, pero permanece disponible al desplazarse |
-| Guía | Incluye “Aprende a observar las hojas” y no muestra cadenas `coffee___` |
-| Diseño adaptable | La captura de 390 px muestra una columna; a 768 y 1440 px el analizador muestra dos columnas sin desbordamiento horizontal |
+| Navegación | La cabecera incluye la marca CaféIA, “Analizar”, “Categorías”, acceso a privacidad y llamada principal; en móvil conserva la marca y el acceso directo al analizador |
+| Categorías | Incluye “Explora las hojas por categoría”, las tres fotografías autorizadas y no muestra cadenas `coffee___` |
+| Diseño adaptable | El analizador usa una columna a 390 px y dos a 768/1440 px; las categorías usan una, dos y tres columnas respectivamente, sin desbordamiento horizontal |
 | Estados | Se capturaron el estado inicial, resultado incierto, resultado aceptado y error de conexión |
 | Fuera de dominio | Se capturó el rechazo de una fotografía de perro; no se mostraron categorías ni puntuaciones de café |
 | Sustitución | La prueba reemplazó una imagen antes de analizar y confirmó que la interfaz mostró el archivo vigente |
@@ -31,7 +33,7 @@
 | Retirada | La gestión desde el pie de página volvió a bloquear el selector y eliminó la selección actual |
 | Encabezados de seguridad | Se comprobaron CSP, `nosniff`, `DENY` para iframes y permisos de cámara, micrófono y geolocalización deshabilitados |
 | Fotografías | Los tres recursos responden HTTP 200, `image/jpeg`, con tamaños 228.648, 212.178 y 313.519 bytes |
-| Contraste calculado | Texto principal verde/crema 11,53:1; texto secundario 6,83:1; terracota/crema 5,78:1; botón blanco/terracota 5,51:1; foco terracota/crema 5,78:1 |
+| Contraste calculado | Botón blanco/verde 12,42:1; texto secundario sobre blanco 6,53:1; terracota oscuro/crema 6,52:1 |
 | API | `/health` respondió `status: ok`, modelo `mobilenet-v3-small-finetuned-epoch6`, época 6, hashes esperados del modelo y filtro, y `domain_guard_loaded: true` |
 | CORS local | El origen permitido `http://localhost:3000` recibió `access-control-allow-origin`; un origen ajeno no recibió ese encabezado |
 | Predicción real, estado orientativo | El ejemplo sano de TRAIN obtuvo puntuación máxima 0,846378 y `is_uncertain: false` |
@@ -52,11 +54,11 @@ Las predicciones anteriores son pruebas funcionales sobre ejemplos de TRAIN; no 
 - Fichas con texto alternativo específico y controles nativos `details/summary` accionables con teclado.
 - Indicadores de foco visibles para enlaces, controles, botones y resúmenes.
 - Objetivos interactivos principales de al menos 40–44 px de alto.
-- Estructura adaptable declarada: una columna por defecto, dos para el analizador desde 768 px y tres para la guía desde 1024 px.
+- Estructura adaptable declarada: una columna por defecto, dos para el analizador desde 768 px; las categorías pasan a dos columnas desde 680 px y tres desde 1120 px.
 - Respeto de `prefers-reduced-motion`.
 
 ## Evidencia visual y alcance
 
-`scripts/verify_frontend.mjs` controló Edge en modo local, ajustó el viewport a 390, 768 y 1440 px, comprobó las tres pestañas del aviso, rechazo, aceptación y retirada, usó imágenes de VAL solo para comprobación local, realizó predicciones reales y guardó el resumen en `reports/web_ui_verification/browser_checks.json`. Las fotografías de VAL y las capturas PNG permanecen fuera de Git.
+`scripts/verify_frontend.mjs` controló Edge en modo local, ajustó el viewport a 390, 768 y 1440 px, capturó tanto el analizador como las tarjetas en esos tamaños, comprobó las tres pestañas del aviso, rechazo, aceptación y retirada, usó imágenes de VAL solo para comprobación local, realizó predicciones reales y guardó el resumen en `reports/web_ui_verification/browser_checks.json`. Las fotografías de VAL y las capturas PNG permanecen fuera de Git.
 
 La comprobación confirmó foco programático y nombres accesibles del selector. Sigue siendo recomendable que una persona recorra manualmente toda la página con `Tab` y un lector de pantalla antes de una publicación pública; la automatización no sustituye esa revisión humana.
