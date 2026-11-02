@@ -4,18 +4,25 @@ import os from "node:os";
 import path from "node:path";
 
 const [uncertainImage, replacementImage, acceptedImage, outsideDomainImage] = process.argv.slice(2);
-if (!uncertainImage || !replacementImage || !acceptedImage) {
-  throw new Error("Uso: node scripts/verify_frontend.mjs <incierta> <reemplazo> <aceptada> [fuera-del-dominio]");
+if (!uncertainImage || !replacementImage || !acceptedImage || !outsideDomainImage) {
+  throw new Error("Uso: node scripts/verify_frontend.mjs <incierta> <reemplazo> <aceptada> <fuera-del-dominio>");
 }
 
-const edgePath = "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe";
+const browserPath = process.env.BROWSER_PATH || [
+  "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
+  "C:\\Program Files (x86)\\Microsoft\\Edge\\Application\\msedge.exe",
+].find((candidate) => fs.existsSync(candidate));
+if (!browserPath) {
+  throw new Error("No se encontró Edge o Chrome. Define BROWSER_PATH con la ruta de un navegador Chromium.");
+}
 const debugPort = 9333;
-const profilePath = path.join(os.tmpdir(), `cafeia-edge-${process.pid}`);
+const profilePath = path.join(os.tmpdir(), `cafeia-browser-${process.pid}`);
 const outputDir = path.resolve("reports", "web_ui_verification");
 fs.mkdirSync(outputDir, { recursive: true });
+const generatedScreenshots = [];
 
-const edge = spawn(
-  edgePath,
+const browser = spawn(
+  browserPath,
   [
     "--headless=new",
     "--disable-gpu",
@@ -46,7 +53,7 @@ async function waitForDebugTarget() {
     }
     await delay(100);
   }
-  throw new Error("Edge no expuso el puerto de depuración a tiempo");
+  throw new Error("El navegador no expuso el puerto de depuración a tiempo");
 }
 
 class CdpClient {
@@ -123,6 +130,7 @@ async function screenshot(client, filename) {
     captureBeyondViewport: false,
   });
   fs.writeFileSync(path.join(outputDir, filename), Buffer.from(result.data, "base64"));
+  if (!generatedScreenshots.includes(filename)) generatedScreenshots.push(filename);
 }
 
 async function setFile(client, imagePath) {
@@ -143,6 +151,14 @@ async function clickButton(client, text) {
     `(() => { const button = [...document.querySelectorAll("button")].find((item) => item.textContent.includes(${JSON.stringify(text)})); if (!button) return false; button.click(); return true; })()`,
   );
   if (!clicked) throw new Error(`No se encontró el botón: ${text}`);
+}
+
+async function clickLink(client, text) {
+  const clicked = await evaluate(
+    client,
+    `(() => { const link = [...document.querySelectorAll("a")].find((item) => item.textContent.includes(${JSON.stringify(text)})); if (!link) return false; link.click(); return true; })()`,
+  );
+  if (!clicked) throw new Error(`No se encontró el enlace: ${text}`);
 }
 
 async function clickDialogTab(client, text) {
@@ -221,11 +237,27 @@ try {
   };
 
   const responsive = {};
+  const instructionLayout = {};
   for (const width of [390, 768, 1440]) {
     await setViewport(client, width);
     responsive[width] = await evaluate(
       client,
       `(() => { const grid = document.querySelector("[data-analysis-grid]"); return grid ? getComputedStyle(grid).gridTemplateColumns : null; })()`,
+    );
+    instructionLayout[width] = await evaluate(
+      client,
+      `(() => {
+        const instructions = document.querySelector("#photo-instructions");
+        const selector = document.querySelector("#leaf-photo");
+        return {
+          present: Boolean(instructions),
+          beforeSelector: Boolean(instructions && selector && (instructions.compareDocumentPosition(selector) & Node.DOCUMENT_POSITION_FOLLOWING)),
+          stepCount: instructions?.querySelectorAll("ol li").length ?? 0,
+          hasSingleLeaf: instructions?.textContent.includes("una sola hoja completa") ?? false,
+          hasSimpleBackground: instructions?.textContent.includes("fondo sencillo") ?? false,
+          hasFocus: instructions?.textContent.includes("Enfoca la hoja") ?? false,
+        };
+      })()`,
     );
     await screenshot(client, `initial_${width}.png`);
   }
@@ -252,7 +284,7 @@ try {
     uploadThroughput: -1,
   });
   await clickButton(client, "Analizar hoja");
-  await waitFor(client, "document.body.innerText.includes('Analizando la fotografía')", "petición pendiente");
+  await waitFor(client, "document.body.innerText.includes('Revisando la fotografía')", "petición pendiente");
   await delay(100);
   await setFile(client, replacementImage);
   await client.send("Network.emulateNetworkConditions", {
@@ -263,7 +295,7 @@ try {
   });
   await waitFor(
     client,
-    `document.body.innerText.includes(${JSON.stringify(path.basename(replacementImage))}) && !document.body.innerText.includes("Analizando la fotografía")`,
+    `document.body.innerText.includes(${JSON.stringify(path.basename(replacementImage))}) && !document.body.innerText.includes("Revisando la fotografía")`,
     "sustitución durante una petición",
   );
   // Supera la latencia artificial para comprobar que una respuesta tardía
@@ -273,7 +305,7 @@ try {
     client,
     `({
       currentPhotoVisible: document.body.innerText.includes(${JSON.stringify(path.basename(replacementImage))}),
-      staleResultHidden: !document.body.innerText.includes("Resultado incierto") && !document.body.innerText.includes("Clasificación orientativa:") && !document.body.innerText.includes("Resultado con alcance limitado"),
+      staleResultHidden: !document.body.innerText.includes("Resultado incierto") && !document.body.innerText.includes("Clasificación orientativa:") && !document.body.innerText.includes("Imagen rechazada"),
       analyzeEnabled: document.querySelector("button[type=submit]")?.disabled === false,
     })`,
   );
@@ -283,7 +315,12 @@ try {
   await waitFor(client, "document.body.innerText.includes('Resultado incierto')", "resultado incierto");
   const uncertainState = await evaluate(
     client,
-    `({ title: document.querySelector("#result-title")?.textContent, hasSecondary: document.body.innerText.includes("Categoría más probable:"), exposesInternalId: document.body.innerText.includes("coffee___") })`,
+    `({
+      title: document.querySelector("#result-title")?.textContent,
+      hasSecondary: document.body.innerText.includes("Categoría más probable:"),
+      hasAcceptedDecision: document.querySelector(".result-summary__status")?.textContent?.includes("Imagen aceptada para el análisis") ?? false,
+      exposesInternalId: document.body.innerText.includes("coffee___"),
+    })`,
   );
   await evaluate(client, "document.querySelector('#result-title')?.scrollIntoView({ block: 'center' })");
   await delay(200);
@@ -293,27 +330,35 @@ try {
   await setFile(client, acceptedImage);
   await clickButton(client, "Analizar hoja");
   await waitFor(client, "document.body.innerText.includes('Clasificación orientativa:')", "clasificación orientativa");
-  const acceptedTitle = await evaluate(client, "document.querySelector('#result-title')?.textContent");
+  const acceptedState = await evaluate(
+    client,
+    `({
+      title: document.querySelector("#result-title")?.textContent,
+      hasAcceptedDecision: document.querySelector(".result-summary__status")?.textContent?.includes("Imagen aceptada para el análisis") ?? false,
+    })`,
+  );
   await setViewport(client, 1440);
   await screenshot(client, "accepted_1440.png");
 
   let outsideDomainState = null;
-  let outsideDomainAnalyzedState = null;
   if (outsideDomainImage) {
     await clickButton(client, "Analizar otra fotografía");
     await setFile(client, outsideDomainImage);
     await clickButton(client, "Analizar hoja");
     await waitFor(
       client,
-      "document.body.innerText.includes('No se pudo confirmar que la imagen corresponda a una hoja de café')",
+      "document.querySelector('.result-summary__status')?.textContent?.includes('Imagen rechazada para el análisis') ?? false",
       "rechazo de imagen fuera del dominio",
     );
     outsideDomainState = await evaluate(
       client,
       `({
         title: document.querySelector("#result-title")?.textContent,
-        hasRequestedMessage: document.body.innerText.includes("Carga una fotografía de una sola hoja de café"),
+        hasRejectedDecision: document.querySelector(".result-summary__status")?.textContent?.includes("Imagen rechazada para el análisis") ?? false,
+        hasRequestedMessage: document.body.innerText.includes("no alcanzó la similitud mínima"),
+        hasRetryInstructions: document.body.innerText.includes("una sola hoja completa, enfocada, con luz uniforme y un fondo sencillo"),
         hidesCoffeeScores: !document.body.innerText.includes("Puntuaciones por clase"),
+        hasNoBypass: ![...document.querySelectorAll("button")].some((button) => button.textContent.includes("Analizar de todos modos")),
         exposesInternalId: document.body.innerText.includes("coffee___"),
       })`,
     );
@@ -325,34 +370,19 @@ try {
     await delay(250);
     await screenshot(client, "outside_domain_390.png");
     await setViewport(client, 1440);
-
-    await clickButton(client, "Analizar de todos modos");
+    await clickLink(client, "Ver cómo tomar la foto");
     await waitFor(
       client,
-      "document.querySelector('.result-summary__status')?.textContent?.includes('Comparación limitada') && document.body.innerText.includes('Puntuaciones por clase')",
-      "comparación limitada solicitada por la persona",
+      "document.activeElement?.id === 'photo-tips-title'",
+      "foco en las instrucciones después del rechazo",
     );
-    outsideDomainAnalyzedState = await evaluate(
+    outsideDomainState.helpLinkFocusedInstructions = await evaluate(
       client,
-      `({
-        title: document.querySelector("#result-title")?.textContent,
-        hasSuggestedCategory: document.body.innerText.includes("Categoría sugerida:"),
-        showsCoffeeScores: document.body.innerText.includes("Puntuaciones por clase"),
-        keepsDomainWarning: document.body.innerText.includes("no confirman que la imagen sea café"),
-        exposesInternalId: document.body.innerText.includes("coffee___"),
-      })`,
+      "document.activeElement?.id === 'photo-tips-title'",
     );
-    await evaluate(client, "document.querySelector('#result-title')?.scrollIntoView({ block: 'center' })");
-    await delay(200);
-    await screenshot(client, "outside_domain_analyzed_1440.png");
-    await setViewport(client, 390);
-    await evaluate(client, "document.querySelector('#result-title')?.scrollIntoView({ block: 'center' })");
-    await delay(250);
-    await screenshot(client, "outside_domain_analyzed_390.png");
-    await setViewport(client, 1440);
   }
 
-  await clickButton(client, "Analizar otra fotografía");
+  await clickButton(client, outsideDomainImage ? "Elegir otra fotografía" : "Analizar otra fotografía");
   await setFile(client, uncertainImage);
   await client.send("Network.setBlockedURLs", { urls: ["http://127.0.0.1:8000/*"] });
   await clickButton(client, "Analizar hoja");
@@ -394,6 +424,17 @@ try {
   assertCheck(responsive[390] && !responsive[390].includes(" "), "una columna a 390 px");
   assertCheck(responsive[768]?.includes(" "), "dos columnas a 768 px");
   assertCheck(responsive[1440]?.includes(" "), "dos columnas a 1440 px");
+  for (const width of [390, 768, 1440]) {
+    assertCheck(
+      instructionLayout[width]?.present &&
+        instructionLayout[width]?.beforeSelector &&
+        instructionLayout[width]?.stepCount === 4 &&
+        instructionLayout[width]?.hasSingleLeaf &&
+        instructionLayout[width]?.hasSimpleBackground &&
+        instructionLayout[width]?.hasFocus,
+      `instrucciones previas al selector a ${width} px`,
+    );
+  }
   assertCheck(
     pendingReplacementState.currentPhotoVisible &&
       pendingReplacementState.staleResultHidden &&
@@ -403,28 +444,27 @@ try {
   assertCheck(
     uncertainState.title === "Resultado incierto" &&
       uncertainState.hasSecondary &&
+      uncertainState.hasAcceptedDecision &&
       !uncertainState.exposesInternalId,
     "presentación accesible del resultado incierto",
   );
   assertCheck(
-    typeof acceptedTitle === "string" && acceptedTitle.startsWith("Clasificación orientativa:"),
+    typeof acceptedState.title === "string" &&
+      acceptedState.title.startsWith("Clasificación orientativa:") &&
+      acceptedState.hasAcceptedDecision,
     "presentación de una clasificación aceptada",
   );
   if (outsideDomainImage) {
     assertCheck(
-      outsideDomainState?.title === "No se pudo confirmar la hoja" &&
+      outsideDomainState?.title === "Imagen rechazada" &&
+        outsideDomainState.hasRejectedDecision &&
         outsideDomainState.hasRequestedMessage &&
+        outsideDomainState.hasRetryInstructions &&
         outsideDomainState.hidesCoffeeScores &&
+        outsideDomainState.hasNoBypass &&
+        outsideDomainState.helpLinkFocusedInstructions &&
         !outsideDomainState.exposesInternalId,
-      "rechazo inicial sin categorías de café",
-    );
-    assertCheck(
-      outsideDomainAnalyzedState?.title === "Resultado con alcance limitado" &&
-        outsideDomainAnalyzedState.hasSuggestedCategory &&
-        outsideDomainAnalyzedState.showsCoffeeScores &&
-        outsideDomainAnalyzedState.keepsDomainWarning &&
-        !outsideDomainAnalyzedState.exposesInternalId,
-      "comparación limitada con advertencia y sin identificadores internos",
+      "rechazo terminal sin categorías ni bypass",
     );
   }
   assertCheck(connectionError, "recuperación visible ante desconexión");
@@ -441,22 +481,23 @@ try {
 
   const report = {
     url: "http://localhost:3000",
+    browser: browserPath,
     consent: consentState,
     responsiveGridColumns: responsive,
+    instructionLayout,
     replacementWorked: true,
     pendingReplacementState,
     uncertainState,
-    acceptedTitle,
+    acceptedState,
     outsideDomainState,
-    outsideDomainAnalyzedState,
     connectionError,
     keyboardFocus: keyboardLabel,
     revocation: revocationState,
-    screenshots: fs.readdirSync(outputDir).filter((name) => name.endsWith(".png")).sort(),
+    screenshots: generatedScreenshots.sort(),
   };
   fs.writeFileSync(path.join(outputDir, "browser_checks.json"), `${JSON.stringify(report, null, 2)}\n`);
   console.log(JSON.stringify(report, null, 2));
 } finally {
   client?.close();
-  edge.kill();
+  browser.kill();
 }

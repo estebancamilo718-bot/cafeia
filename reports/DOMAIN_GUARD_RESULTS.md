@@ -1,5 +1,7 @@
 # Resultado del filtro experimental de dominio
 
+> **Nota de vigencia (2026-11-02):** el artefacto, el umbral y estas métricas no cambiaron. La interfaz y la API ahora aplican el rechazo como decisión terminal y usan un mensaje más preciso; el contrato vigente se documenta en `reports/IMAGE_ACCEPTANCE_REJECTION.md`.
+
 **Fecha:** 2026-10-18
 
 **Estado:** integrado como barrera experimental previa; no modifica el clasificador de tres clases.
@@ -8,7 +10,7 @@
 
 ## Decisión
 
-Se integró un filtro de similitud en el espacio interno del mismo MobileNet activo. Su función es evitar que la API fuerce una categoría de café en ejemplos claramente alejados de las imágenes de desarrollo. Si la similitud no alcanza el umbral fijado, la API responde `outside_domain`, deja vacías las tres puntuaciones y muestra:
+Se integró un filtro de similitud en el espacio interno del mismo MobileNet activo. Su función es evitar que la API fuerce una categoría de café en ejemplos claramente alejados de las imágenes de desarrollo. En la versión documentada el 2026-10-18, si la similitud no alcanzaba el umbral fijado, la API respondía `outside_domain`, dejaba vacías las tres puntuaciones y mostraba este texto histórico:
 
 > No se pudo confirmar que la imagen corresponda a una hoja de café. Carga una fotografía de una sola hoja de café.
 

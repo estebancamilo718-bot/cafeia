@@ -1,5 +1,6 @@
 {
   "url": "http://localhost:3000",
+  "browser": "C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe",
   "consent": {
     "notice": {
       "hasNoStorageClaim": true,
@@ -15,6 +16,32 @@
     "768": "342.5px 342.5px",
     "1440": "660.5px 660.5px"
   },
+  "instructionLayout": {
+    "390": {
+      "present": true,
+      "beforeSelector": true,
+      "stepCount": 4,
+      "hasSingleLeaf": true,
+      "hasSimpleBackground": true,
+      "hasFocus": true
+    },
+    "768": {
+      "present": true,
+      "beforeSelector": true,
+      "stepCount": 4,
+      "hasSingleLeaf": true,
+      "hasSimpleBackground": true,
+      "hasFocus": true
+    },
+    "1440": {
+      "present": true,
+      "beforeSelector": true,
+      "stepCount": 4,
+      "hasSingleLeaf": true,
+      "hasSimpleBackground": true,
+      "hasFocus": true
+    }
+  },
   "replacementWorked": true,
   "pendingReplacementState": {
     "currentPhotoVisible": true,
@@ -24,21 +51,22 @@
   "uncertainState": {
     "title": "Resultado incierto",
     "hasSecondary": true,
+    "hasAcceptedDecision": true,
     "exposesInternalId": false
   },
-  "acceptedTitle": "Clasificación orientativa: Roya",
+  "acceptedState": {
+    "title": "Clasificación orientativa: Hoja sana",
+    "hasAcceptedDecision": true
+  },
   "outsideDomainState": {
-    "title": "No se pudo confirmar la hoja",
+    "title": "Imagen rechazada",
+    "hasRejectedDecision": true,
     "hasRequestedMessage": true,
+    "hasRetryInstructions": true,
     "hidesCoffeeScores": true,
-    "exposesInternalId": false
-  },
-  "outsideDomainAnalyzedState": {
-    "title": "Resultado con alcance limitado",
-    "hasSuggestedCategory": true,
-    "showsCoffeeScores": true,
-    "keepsDomainWarning": true,
-    "exposesInternalId": false
+    "hasNoBypass": true,
+    "exposesInternalId": false,
+    "helpLinkFocusedInstructions": true
   },
   "connectionError": true,
   "keyboardFocus": {
@@ -63,8 +91,6 @@
     "initial_768.png",
     "outside_domain_1440.png",
     "outside_domain_390.png",
-    "outside_domain_analyzed_1440.png",
-    "outside_domain_analyzed_390.png",
     "uncertain_390.png"
   ]
 }

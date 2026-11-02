@@ -1,5 +1,7 @@
 # Verificación de la interfaz de CaféIA
 
+> **Nota de vigencia (2026-11-02):** este informe conserva textos y capturas de revisiones anteriores. El rechazo terminal y las etiquetas actuales se verifican en `reports/IMAGE_ACCEPTANCE_REJECTION.md` y `reports/web_ui_verification/browser_checks.json`.
+
 > **Actualización visual 2026-10-18:** se incorporó una cabecera completa, una marca SVG propia, una portada editorial inspirada en la jerarquía visual de AgroTolima y tarjetas fotográficas para las tres categorías. Se retiraron las expresiones “Sistema de apoyo visual” y “Referencia educativa”, así como el bloque general de aclaración solicitado. Las fuentes y atribuciones necesarias permanecen dentro de “Ver detalles”.
 
 > **Comprobación 2026-10-18:** la revisión automatizada se repitió contra el backend con el filtro de dominio cargado. Además de los estados aceptado, incierto y desconexión, se envió una fotografía externa de un perro: la página mostró “No se pudo confirmar la hoja”, incluyó la instrucción de cargar una sola hoja de café, ocultó las puntuaciones de las tres clases y no expuso identificadores internos.

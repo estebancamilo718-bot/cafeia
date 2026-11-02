@@ -9,7 +9,7 @@ from pathlib import Path
 from typing import Literal
 
 import torch
-from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, model_validator
 from PIL import Image, ImageOps, UnidentifiedImageError
@@ -34,13 +34,8 @@ EXPECTED_CLASS_ORDER = [
 ]
 DEFAULT_ALLOWED_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
 OUTSIDE_DOMAIN_MESSAGE = (
-    "No se pudo confirmar que la imagen corresponda a una hoja de café. "
-    "Carga una fotografía de una sola hoja de café."
-)
-OUTSIDE_DOMAIN_ANALYZED_MESSAGE = (
-    "No se pudo confirmar que la imagen corresponda a una hoja de café. "
-    "Esta comparación se muestra porque elegiste analizarla de todos modos "
-    "y solo distingue hoja sana, roya y daño por ácaro rojo."
+    "La imagen no alcanzó la similitud mínima con los ejemplos admitidos "
+    "de hojas de café. Toma otra fotografía de una sola hoja y vuelve a intentarlo."
 )
 
 
@@ -55,7 +50,6 @@ class PredictionResponse(BaseModel):
         "classified",
         "uncertain",
         "outside_domain",
-        "outside_domain_analyzed",
     ]
     is_supported_image: bool
     domain_score: float = Field(ge=-1.0, le=1.0)
@@ -70,7 +64,6 @@ class PredictionResponse(BaseModel):
 
     @model_validator(mode="after")
     def validate_response_contract(self) -> "PredictionResponse":
-        has_result = self.status != "outside_domain"
         result_fields_are_present = (
             self.category is not None
             and self.category_label is not None
@@ -93,7 +86,7 @@ class PredictionResponse(BaseModel):
                 raise ValueError("Una imagen fuera del dominio no puede exponer una clasificación")
             return self
 
-        if not has_result or not result_fields_are_present:
+        if not result_fields_are_present:
             raise ValueError("La respuesta de clasificación está incompleta")
         if self.uncertainty_threshold != UNCERTAINTY_THRESHOLD:
             raise ValueError("El umbral de incertidumbre no coincide con el configurado")
@@ -122,15 +115,6 @@ class PredictionResponse(BaseModel):
             raise ValueError("La categoría seleccionada no coincide con la puntuación mayor")
         if self.is_uncertain != (self.score < self.uncertainty_threshold):
             raise ValueError("El estado de incertidumbre no coincide con la puntuación")
-
-        if self.status == "outside_domain_analyzed":
-            if (
-                self.is_supported_image
-                or self.domain_score >= self.domain_threshold
-                or not self.message
-            ):
-                raise ValueError("La comparación limitada debe conservar el rechazo de dominio")
-            return self
 
         if (
             not self.is_supported_image
@@ -212,19 +196,14 @@ class Predictor:
             )
         self.domain_guard_method = str(self.domain_guard.metadata.get("method", "unknown"))
 
-    def predict(
-        self,
-        image: Image.Image,
-        *,
-        analyze_outside_domain: bool = False,
-    ) -> PredictionResponse:
+    def predict(self, image: Image.Image) -> PredictionResponse:
         tensor = self.preprocess(image).unsqueeze(0)
         with torch.inference_mode():
             logits, embedding = mobilenet_logits_and_embedding(self.model, tensor)
             domain_score = float(self.domain_guard.scores(embedding)[0])
 
         outside_domain = domain_score < self.domain_guard.threshold
-        if outside_domain and not analyze_outside_domain:
+        if outside_domain:
             return PredictionResponse(
                 status="outside_domain",
                 is_supported_image=False,
@@ -245,15 +224,11 @@ class Predictor:
             for index, category in enumerate(self.classes)
         ]
         return PredictionResponse(
-            status=(
-                "outside_domain_analyzed"
-                if outside_domain
-                else "uncertain" if best_score < UNCERTAINTY_THRESHOLD else "classified"
-            ),
-            is_supported_image=not outside_domain,
+            status="uncertain" if best_score < UNCERTAINTY_THRESHOLD else "classified",
+            is_supported_image=True,
             domain_score=domain_score,
             domain_threshold=self.domain_guard.threshold,
-            message=OUTSIDE_DOMAIN_ANALYZED_MESSAGE if outside_domain else None,
+            message=None,
             category=best_category,
             category_label=CLASS_NAMES[best_category],
             score=best_score,
@@ -332,7 +307,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title="CaféIA API",
     description="API de apoyo para clasificación visual de hojas de café en tres categorías.",
-    version="0.2.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 app.add_middleware(
@@ -408,7 +383,6 @@ def health(request: Request) -> HealthResponse:
 async def predict(
     request: Request,
     file: UploadFile = File(...),
-    analyze_outside_domain: bool = Form(False),
 ) -> PredictionResponse:
     filename = file.filename or ""
     extension = Path(filename).suffix.lower()
@@ -426,7 +400,4 @@ async def predict(
 
     image = _decode_image(data, ALLOWED_EXTENSIONS[extension])
     predictor: Predictor = request.app.state.predictor
-    return predictor.predict(
-        image,
-        analyze_outside_domain=analyze_outside_domain,
-    )
+    return predictor.predict(image)

@@ -402,16 +402,48 @@ summary:focus-visible {
   background: #f4f7f5;
 }
 
-.photo-guidance li { position: relative; padding-left: 1.05rem; }
+.photo-guidance h3 { scroll-margin-top: 7rem; }
 
-.photo-guidance li::before {
-  position: absolute;
-  top: 0;
-  left: 0;
-  color: #668879;
-  content: "✓";
-  font-size: 0.75rem;
-  font-weight: 800;
+.photo-guidance__steps {
+  display: grid;
+  gap: 0.65rem;
+  color: #52655d;
+  font-size: 0.78rem;
+  line-height: 1.15rem;
+}
+
+.photo-guidance__steps li {
+  display: grid;
+  grid-template-columns: 1.35rem 1fr;
+  align-items: start;
+  gap: 0.5rem;
+}
+
+.photo-guidance__steps li > span {
+  display: grid;
+  width: 1.35rem;
+  height: 1.35rem;
+  place-items: center;
+  border-radius: 999px;
+  color: white;
+  background: #285646;
+  font-size: 0.65rem;
+  font-weight: 900;
+}
+
+.photo-guidance__steps strong { color: var(--forest); }
+
+.photo-guidance__note {
+  margin-top: 0.8rem;
+  border-top: 1px solid #dbe5df;
+  padding-top: 0.7rem;
+  color: #667871;
+  font-size: 0.72rem;
+  line-height: 1.1rem;
+}
+
+@media (min-width: 1200px) {
+  .photo-guidance__steps { grid-template-columns: repeat(2, minmax(0, 1fr)); }
 }
 
 .error-alert {
@@ -511,6 +543,7 @@ summary:focus-visible {
 .result-summary { border: 1px solid; border-radius: 0.9rem; padding: 1.1rem; }
 .result-summary.is-accepted { border-color: #c9dad1; background: #f0f6f2; }
 .result-summary.is-uncertain { border-color: #e2cc95; background: #fcf7e9; }
+.result-summary.is-rejected { border-color: #dfb7aa; background: #fbf1ed; }
 
 .result-summary__status {
   display: flex;
@@ -536,6 +569,7 @@ summary:focus-visible {
 }
 
 .is-uncertain .result-status-icon { background: var(--gold); }
+.is-rejected .result-status-icon { background: var(--terracotta-dark); }
 .score-bar { background: linear-gradient(90deg, var(--terracotta-dark), #c16b4b); }
 
 .model-note {

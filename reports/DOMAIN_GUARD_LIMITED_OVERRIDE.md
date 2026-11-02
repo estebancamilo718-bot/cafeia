@@ -1,5 +1,7 @@
 # Análisis limitado tras un rechazo del filtro de dominio
 
+> **Nota de vigencia (2026-11-02):** este documento conserva la evidencia histórica del flujo que permitía solicitar una comparación limitada. Esa opción fue retirada de la interfaz y de la API pública para que la decisión del filtro sea un rechazo terminal. El contrato vigente está en `reports/IMAGE_ACCEPTANCE_REJECTION.md`.
+
 **Fecha:** 2026-10-18
 
 **Estado de esta evidencia:** verificación local previa al despliegue; la URL pública se comprueba tras cada `push`

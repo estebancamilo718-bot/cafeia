@@ -13,7 +13,7 @@ import {
 import { PrivacyConsent } from "../components/privacy-consent";
 import { analysisFailureMessage, validateSelectedImage } from "../lib/analysis-input";
 import { LatestRequestCoordinator } from "../lib/latest-request";
-import { isPredictionForRequest, type Prediction } from "../lib/prediction";
+import { isPrediction, type Prediction } from "../lib/prediction";
 import {
   canAnalyzeWithConsent,
   parseStoredPrivacyConsent,
@@ -212,14 +212,12 @@ export default function Home() {
     useSelectedFile(event.dataTransfer.files?.[0] ?? null);
   }
 
-  async function submitAnalysis(analyzeOutsideDomain = false) {
+  async function submitAnalysis() {
     if (!consentAccepted) {
       setPrivacyDialogOpen(true);
       return;
     }
     if (!file) return;
-    if (analyzeOutsideDomain && result?.status !== "outside_domain") return;
-
     const requestTicket = requestCoordinatorRef.current.begin();
     if (!requestTicket) return;
     setLoading(true);
@@ -227,7 +225,6 @@ export default function Home() {
     setResult(null);
     const body = new FormData();
     body.append("file", file);
-    if (analyzeOutsideDomain) body.append("analyze_outside_domain", "true");
 
     try {
       const response = await fetch(`${API_URL}/predict`, {
@@ -237,7 +234,7 @@ export default function Home() {
       });
       const payload: unknown = await response.json().catch(() => null);
       if (!response.ok) throw new Error(errorMessage(payload));
-      if (!isPredictionForRequest(payload, analyzeOutsideDomain)) {
+      if (!isPrediction(payload)) {
         throw new Error("No pudimos leer el resultado. Inténtalo de nuevo.");
       }
       if (requestCoordinatorRef.current.isCurrent(requestTicket)) {
@@ -256,14 +253,12 @@ export default function Home() {
 
   function analyze(event: FormEvent) {
     event.preventDefault();
-    void submitAnalysis(false);
+    void submitAnalysis();
   }
 
   const relatedGuideId = result && result.status !== "outside_domain"
     ? GUIDE_BY_CATEGORY[result.category]
     : undefined;
-  const isLimitedResult = result?.status === "outside_domain_analyzed";
-
   return (
     <>
       <a
@@ -342,8 +337,24 @@ export default function Home() {
 
               <form onSubmit={analyze} className="mt-5 flex flex-1 flex-col gap-4">
                 <p id="upload-help" className="sr-only">
-                  Elige un archivo JPG o PNG. Usa buena luz y una hoja enfocada.
+                  Sigue los cuatro pasos para fotografiar una sola hoja de café y elige un archivo JPG o PNG.
                 </p>
+
+                <aside id="photo-instructions" aria-labelledby="photo-tips-title" className="photo-guidance">
+                  <div className="flex items-center gap-2">
+                    <svg className="h-4 w-4 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
+                    <h3 id="photo-tips-title" tabIndex={-1} className="text-sm font-extrabold">Cómo tomar la fotografía</h3>
+                  </div>
+                  <ol className="photo-guidance__steps mt-3">
+                    <li><span aria-hidden="true">1</span><p>Coloca <strong>una sola hoja completa</strong> sobre un fondo sencillo.</p></li>
+                    <li><span aria-hidden="true">2</span><p>Usa <strong>luz uniforme</strong>, sin filtros, reflejos fuertes ni sombras.</p></li>
+                    <li><span aria-hidden="true">3</span><p>Enfoca la hoja y evita que quede cortada, lejana o movida.</p></li>
+                    <li><span aria-hidden="true">4</span><p>Fotografía haz y envés por separado; sube una imagen cada vez.</p></li>
+                  </ol>
+                  <p className="photo-guidance__note">
+                    CaféIA primero decide si la imagen puede analizarse. Si no alcanza la similitud mínima con sus ejemplos admitidos, la rechaza sin mostrar una categoría.
+                  </p>
+                </aside>
 
                 {consentAccepted ? (
                   <div className="consent-inline-status" role="status">
@@ -385,7 +396,7 @@ export default function Home() {
                     className="absolute inset-0 z-10 h-full w-full cursor-pointer opacity-0 disabled:cursor-not-allowed"
                     type="file"
                     aria-label={file ? "Reemplazar fotografía de la hoja" : "Seleccionar fotografía de una hoja de café"}
-                    aria-describedby="upload-help"
+                    aria-describedby="upload-help photo-instructions"
                     accept=".jpg,.jpeg,.png,image/jpeg,image/png"
                     disabled={!consentAccepted}
                     onChange={selectFile}
@@ -422,19 +433,6 @@ export default function Home() {
                   )}
                 </label>
 
-                <aside aria-labelledby="photo-tips-title" className="photo-guidance">
-                  <div className="flex items-center gap-2">
-                    <svg className="h-4 w-4 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
-                    <h3 id="photo-tips-title" className="text-sm font-extrabold">Para obtener una imagen más útil</h3>
-                  </div>
-                  <ul className="mt-2 grid gap-x-4 gap-y-1.5 text-sm leading-5 text-[#52655d] sm:grid-cols-2">
-                    <li>Una sola hoja completa</li>
-                    <li>Luz uniforme y sin filtros</li>
-                    <li>Imagen enfocada</li>
-                    <li>Haz y envés por separado</li>
-                  </ul>
-                </aside>
-
                 {error && (
                   <div role="alert" className="error-alert">
                     <svg className="mt-0.5 h-5 w-5 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></svg>
@@ -447,7 +445,7 @@ export default function Home() {
                   disabled={!file || loading || !consentAccepted}
                   className="primary-button mt-auto"
                 >
-                  <span>{loading ? "Analizando fotografía…" : "Analizar hoja"}</span>
+                  <span>{loading ? "Revisando fotografía…" : "Analizar hoja"}</span>
                   {!loading && <svg className="h-5 w-5 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>}
                 </button>
               </form>
@@ -457,8 +455,8 @@ export default function Home() {
               <div className="section-heading">
                 <span className="step-number" aria-hidden="true">02</span>
                 <div>
-                  <p className="section-kicker">Lectura del modelo</p>
-                  <p className="mt-0.5 text-xl font-extrabold tracking-[-0.02em] text-[#11382b]">Resultado del análisis</p>
+                  <p className="section-kicker">Aceptación y clasificación</p>
+                  <p className="mt-0.5 text-xl font-extrabold tracking-[-0.02em] text-[#11382b]">Validación y resultado</p>
                 </div>
               </div>
 
@@ -466,76 +464,53 @@ export default function Home() {
                 <div className="result-stage">
                   <div className="max-w-sm text-center">
                     <span className="analysis-loader mx-auto" aria-hidden="true" />
-                    <h2 id="result-title" className="mt-6 text-2xl font-black tracking-[-0.03em] text-[#11382b]">Analizando la fotografía</h2>
-                    <p className="mt-2 text-sm leading-6 text-[#667871]">Estamos comparando la imagen con los patrones de las tres categorías.</p>
+                    <h2 id="result-title" className="mt-6 text-2xl font-black tracking-[-0.03em] text-[#11382b]">Revisando la fotografía</h2>
+                    <p className="mt-2 text-sm leading-6 text-[#667871]">Primero comprobamos si la imagen puede analizarse. Si es aceptada, la comparamos con las tres categorías.</p>
                     <p className="mt-3 text-xs leading-5 text-[#71827b]">Si reemplazas la fotografía, esta solicitud se cancelará.</p>
                   </div>
                 </div>
               ) : result?.status === "outside_domain" ? (
                 <div className="mt-5">
-                  <div className="result-summary is-uncertain">
+                  <div className="result-summary is-rejected">
                     <div className="result-summary__status">
                       <span className="result-status-icon" aria-hidden="true">!</span>
-                      <span>Imagen fuera del alcance</span>
+                      <span>Imagen rechazada para el análisis</span>
                     </div>
                     <h2 id="result-title" tabIndex={-1} className="mt-4 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
-                      No se pudo confirmar la hoja
+                      Imagen rechazada
                     </h2>
                     <p className="mt-3 text-sm leading-6 text-[#52655d]">{result.message}</p>
-                    <p className="mt-4 border-t border-[#b98927]/20 pt-3 text-sm leading-5 text-[#6b511b]">
-                      La fotografía puede ser una hoja de café tomada en condiciones diferentes a los ejemplos conocidos. Puedes intentar otra foto o pedir una comparación limitada con las tres categorías.
+                    <p className="mt-4 border-t border-[#a75236]/20 pt-3 text-sm leading-5 text-[#743d2b]">
+                      Repite la toma con una sola hoja completa, enfocada, con luz uniforme y un fondo sencillo. El rechazo no demuestra que la hoja no sea de café.
                     </p>
                   </div>
                   <div className="mt-5 grid gap-3 sm:grid-cols-2">
                     <button type="button" onClick={() => reset(true)} className="secondary-button">
-                      Cargar otra fotografía
+                      Elegir otra fotografía
                     </button>
-                    <button
-                      type="button"
-                      onClick={() => void submitAnalysis(true)}
-                      aria-describedby="outside-domain-analysis-note"
-                      className="primary-button"
-                    >
-                      Analizar de todos modos
-                    </button>
-                    <p id="outside-domain-analysis-note" className="text-xs leading-5 text-[#71827b] sm:col-span-2">
-                      Esta opción no confirma que sea café. Solo muestra cómo la compara el modelo con hoja sana, roya y daño por ácaro rojo.
-                    </p>
-                    <a href="#guia" className="text-button">
-                      Consultar las tres categorías
+                    <a href="#photo-tips-title" className="text-button">
+                      Ver cómo tomar la foto
                       <svg className="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
                     </a>
                   </div>
                 </div>
               ) : result ? (
                 <div className="mt-5">
-                  <div className={`result-summary ${isLimitedResult || result.is_uncertain ? "is-uncertain" : "is-accepted"}`}>
+                  <div className={`result-summary ${result.is_uncertain ? "is-uncertain" : "is-accepted"}`}>
                     <div className="result-summary__status">
                       <span className="result-status-icon" aria-hidden="true">
-                        {isLimitedResult ? "!" : result.is_uncertain ? "?" : "✓"}
+                        {result.is_uncertain ? "?" : "✓"}
                       </span>
-                      <span>
-                        {isLimitedResult
-                          ? result.is_uncertain
-                            ? "Comparación limitada · revisión recomendada"
-                            : "Comparación limitada"
-                          : result.is_uncertain
-                            ? "Revisión recomendada"
-                            : "Análisis completado"}
-                      </span>
+                      <span>Imagen aceptada para el análisis</span>
                     </div>
                     <h2 id="result-title" tabIndex={-1} className="mt-4 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
-                      {isLimitedResult
-                        ? result.is_uncertain
-                          ? "Resultado incierto"
-                          : "Resultado con alcance limitado"
-                        : result.is_uncertain
-                          ? "Resultado incierto"
-                          : `Clasificación orientativa: ${result.category_label}`}
+                      {result.is_uncertain
+                        ? "Resultado incierto"
+                        : `Clasificación orientativa: ${result.category_label}`}
                     </h2>
-                    {(isLimitedResult || result.is_uncertain) && (
+                    {result.is_uncertain && (
                       <p className="mt-2 text-sm font-bold text-[#52655d]">
-                        {isLimitedResult ? "Categoría sugerida" : "Categoría más probable"}: {result.category_label}
+                        Categoría más probable: {result.category_label}
                       </p>
                     )}
                     <div className="mt-4 flex items-end justify-between gap-4 border-t border-current/10 pt-4">
@@ -545,11 +520,6 @@ export default function Home() {
                       </div>
                       <span className="text-right text-xs leading-4 text-[#71827b]">Umbral provisional<br />{formatScore(result.uncertainty_threshold)}</span>
                     </div>
-                    {isLimitedResult && (
-                      <p className="mt-4 border-t border-[#b98927]/20 pt-3 text-sm leading-5 text-[#6b511b]">
-                        El sistema no confirmó que la fotografía se parezca suficientemente a sus ejemplos de hojas de café. Estas puntuaciones solo muestran la comparación solicitada entre las tres categorías y no confirman que la imagen sea café.
-                      </p>
-                    )}
                     {result.is_uncertain && (
                       <p className="mt-4 border-t border-[#b98927]/20 pt-3 text-sm leading-5 text-[#6b511b]">
                         La puntuación mayor no alcanzó el umbral provisional de {formatScore(result.uncertainty_threshold)}. Prueba otra foto o solicita revisión humana.
@@ -583,7 +553,7 @@ export default function Home() {
                     ))}
                   </div>
 
-                  {!isLimitedResult && !result.is_uncertain && (
+                  {!result.is_uncertain && (
                     <p className="mt-5 border-l-2 border-[#55806f] bg-[#f2f6f3] px-4 py-3 text-sm leading-5 text-[#40564e]">
                       Toma esta lectura como un primer punto de comparación. Si notas cambios en el cultivo, revisa varias hojas y consulta a un profesional del café.
                     </p>
@@ -593,8 +563,8 @@ export default function Home() {
                     <button type="button" onClick={() => reset(true)} className="secondary-button">
                       Analizar otra fotografía
                     </button>
-                    <a href={isLimitedResult || result.is_uncertain || !relatedGuideId ? "#guia" : `#${relatedGuideId}`} className="text-button">
-                      {isLimitedResult || result.is_uncertain ? "Consultar categorías" : `Ver ficha de ${result.category_label.toLocaleLowerCase("es-CO")}`}
+                    <a href={result.is_uncertain || !relatedGuideId ? "#guia" : `#${relatedGuideId}`} className="text-button">
+                      {result.is_uncertain ? "Consultar categorías" : `Ver ficha de ${result.category_label.toLocaleLowerCase("es-CO")}`}
                       <svg className="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
                     </a>
                   </div>
@@ -623,7 +593,7 @@ export default function Home() {
 
               <div className="model-note mt-auto">
                 <svg className="mt-0.5 h-4 w-4 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 11v6M12 7.5v.5"/></svg>
-                <p>Las puntuaciones no son probabilidades calibradas de acierto. CaféIA solo distingue hoja sana, roya y ácaro rojo. El filtro previo de dominio es experimental y no garantiza que toda imagen aceptada corresponda a una hoja de café.</p>
+                <p>Aceptar una imagen solo permite continuar con el análisis; no confirma que sea café. Las puntuaciones no son probabilidades calibradas de acierto y CaféIA solo distingue hoja sana, roya y ácaro rojo.</p>
               </div>
             </section>
           </div>

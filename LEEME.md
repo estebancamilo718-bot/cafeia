@@ -36,7 +36,9 @@ src/                         Preparación, entrenamiento, validación y evaluaci
 reports/                     Protocolos, métricas y auditorías
 ```
 
-La ruta de inferencia es: archivo JPG/PNG → validación de formato y contenido → orientación EXIF y RGB → `Resize((224, 224))` → tensor → normalización ImageNet → MobileNet → score experimental de dominio → si se acepta, softmax sobre tres salidas → respuesta API → presentación web. Si se rechaza, la primera respuesta no devuelve categoría ni puntuaciones de café. Solo después de una acción explícita **Analizar de todos modos**, el mismo endpoint puede devolver `outside_domain_analyzed`: una comparación limitada que conserva `is_supported_image=false` y no confirma que la fotografía sea café.
+La ruta de inferencia es: archivo JPG/PNG → validación de formato y contenido → orientación EXIF y RGB → `Resize((224, 224))` → tensor → normalización ImageNet → MobileNet → score experimental de dominio. Si la imagen se acepta, se calcula softmax sobre tres salidas y se presenta la clasificación; si se rechaza, la API devuelve `outside_domain` sin categoría ni puntuaciones. El rechazo es terminal en el endpoint público y no se puede omitir mediante un campo adicional.
+
+La interfaz muestra antes del selector cuatro instrucciones: una sola hoja completa sobre fondo sencillo, luz uniforme sin filtros, enfoque y haz/envés por separado. Después de procesar la imagen, comunica literalmente **Imagen aceptada para el análisis** o **Imagen rechazada para el análisis**. Una imagen aceptada todavía puede producir `Resultado incierto`; aceptación e incertidumbre son decisiones diferentes.
 
 El backend carga el checkpoint y el filtro una vez en el arranque, exige sus hashes, verifica que ambos correspondan al mismo modelo y orden `sana → ácaro rojo → roya`, y no guarda la fotografía recibida.
 
@@ -123,7 +125,7 @@ Pruebas del backend:
 & .\.venv\Scripts\python.exe -m pytest -q tests/backend
 ```
 
-- `test_api_contract.py` usa principalmente dobles deterministas. Comprueba contrato, JPG/PNG, contenido real, archivo vacío, exceso de 10 MB, discrepancia de formato, error interno y el permiso explícito de comparación limitada. Una prueba determinista de la clase `Predictor` verifica que ese permiso solo cambia la exposición del resultado; no demuestra exactitud.
+- `test_api_contract.py` usa principalmente dobles deterministas. Comprueba contrato, JPG/PNG, contenido real, archivo vacío, exceso de 10 MB, discrepancia de formato, error interno y que un rechazo nunca exponga una categoría o puntuaciones, aunque se envíe el antiguo campo de bypass. No demuestra exactitud.
 - `test_checkpoint_inference.py` verifica el hash, carga el checkpoint real y ejecuta una inferencia sobre una imagen sintética creada en memoria. Prueba integración técnica, no desempeño ni exactitud.
 - `test_domain_guard.py` comprueba score, umbral, serialización y que obtener el embedding no altere los logits del modelo.
 
@@ -137,7 +139,7 @@ npm.cmd run build
 
 La prueba cubre doble envío, cancelación, sustitución durante una petición, validación previa y error de conexión. La compilación ejecuta TypeScript y genera la salida optimizada.
 
-El verificador automatizado de navegador cubre carga, reemplazo durante una petición, resultados, rechazo de dominio, comparación limitada, desconexión, teclado, consentimiento y anchos 390/768/1440. Su evidencia está en `reports/web_ui_verification/browser_checks.json`. `reports/MANUAL_BROWSER_WALKTHROUGH.md` se conserva para una revisión humana complementaria desde el dispositivo final.
+El verificador automatizado de navegador cubre instrucciones previas, carga, reemplazo durante una petición, aceptación, resultado incierto, rechazo terminal sin puntuaciones, desconexión, teclado, consentimiento y anchos 390/768/1440. Su evidencia está en `reports/web_ui_verification/browser_checks.json`. `reports/MANUAL_BROWSER_WALKTHROUGH.md` se conserva para una revisión humana complementaria desde el dispositivo final.
 
 ### Comprobación E2E local con fotografías reales de VAL
 
@@ -280,9 +282,10 @@ Los archivos ignorados siguen siendo importantes localmente. No borres `data/raw
 - `reports/RELIABILITY_AUDIT.md`: flujo web y errores de concurrencia.
 - `reports/V2_PREPROCESSING_RESULTS.md`: candidato v2 descartado.
 - `reports/DOMAIN_GUARD_RESULTS.md`: protocolo, resultados y límites del filtro de dominio.
+- `reports/IMAGE_ACCEPTANCE_REJECTION.md`: contrato vigente de aceptación/rechazo e instrucciones de captura.
 - `reports/DOMAIN_GENERALIZATION_V2_PROTOCOL.md`: protocolo previo para datos externos auditados.
 - `reports/COFFEELEAF_DOMAIN_GUARD_EXPERIMENT.md`: auditoría y comparación del candidato externo no integrado.
-- `reports/DOMAIN_GUARD_LIMITED_OVERRIDE.md`: decisión y pruebas de la comparación limitada.
+- `reports/DOMAIN_GUARD_LIMITED_OVERRIDE.md`: evidencia histórica de una comparación limitada ya retirada del producto público.
 - `ATTRIBUTIONS.md`: licencias y fuentes de terceros.
 
 El código del proyecto todavía no tiene una licencia propia. Como el repositorio ya es público, elegirla es una decisión urgente pendiente; sin licencia no se conceden permisos explícitos para reutilizar el código.

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import pytest
 import torch
 from torch import nn
 
@@ -25,6 +26,20 @@ def test_guard_accepts_only_scores_at_or_above_threshold() -> None:
     embeddings = torch.tensor([[1.0, 0.0], [0.5, 0.5]])
 
     assert guard.accepts(embeddings).tolist() == [True, False]
+
+
+def test_guard_accepts_a_score_equal_to_the_threshold() -> None:
+    guard = DomainGuard(
+        reference_embeddings=torch.tensor([[1.0, 0.0]]),
+        threshold=0.8,
+        neighbors=1,
+        metadata={},
+    )
+
+    score = guard.scores(torch.tensor([[0.8, 0.6]]))
+
+    assert score.item() == pytest.approx(0.8)
+    assert guard.accepts(torch.tensor([[0.8, 0.6]])).item() is True
 
 
 def test_guard_round_trip(tmp_path) -> None:

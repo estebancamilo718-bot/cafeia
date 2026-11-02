@@ -113,7 +113,7 @@ El artefacto se conserva como **candidato no integrado**:
 
 No sustituye `models/coffee_domain_guard.pt` porque el protocolo previo exige una comprobación externa congelada con BRACOL y esta no se ejecutó. También faltan el análisis perceptual de casi duplicados y las mediciones de memoria, arranque y latencia; además, el margen observado frente a los negativos disminuyó. Activarlo ahora seleccionaría el sistema con evidencia incompleta.
 
-El clasificador web y el filtro activo permanecen intactos. Para evitar que una hoja externa rechazada quede en un callejón sin salida, la interfaz incorpora por separado una acción explícita **Analizar de todos modos**; esa salida conserva el estado fuera de dominio y presenta sus puntuaciones como comparación limitada. No constituye una mejora del modelo.
+El clasificador web y el filtro activo permanecieron intactos. En esa versión, la interfaz incorporó por separado una acción explícita **Analizar de todos modos**; esa salida conservaba el estado fuera de dominio y presentaba sus puntuaciones como comparación limitada. El flujo fue retirado del producto público el 2026-11-02 para hacer terminal el rechazo del filtro; véase `reports/IMAGE_ACCEPTANCE_REJECTION.md`.
 
 ## 6. Evidencia reproducible
 

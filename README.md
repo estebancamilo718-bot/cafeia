@@ -18,7 +18,7 @@ La interfaz actual presenta dos destinos: **Analizar** y **Guía de hojas**. Las
 
 El backend comprueba los hashes, la compatibilidad del filtro y el orden de clases antes de atender solicitudes. Ambos artefactos se cargan una vez durante el arranque y las fotografías recibidas se procesan en memoria, sin guardarlas.
 
-Cuando el filtro no reconoce suficientemente el aspecto de una fotografía, la primera respuesta sigue ocultando categorías y puntuaciones. La interfaz permite solicitar después **Analizar de todos modos**: esta segunda petición devuelve una comparación limitada con las tres clases, conserva `is_supported_image=false` y advierte que no confirma que la imagen sea una hoja de café. Esta salida no cambia el modelo, el filtro ni sus umbrales.
+El flujo separa la decisión de aceptación de la clasificación. El filtro compara la representación interna de la imagen con 880 referencias de TRAIN: si el score no alcanza el umbral fijado, la API responde `outside_domain`, marca `is_supported_image=false` y no devuelve categoría ni puntuaciones. Ese rechazo es terminal en la API pública; no existe una opción para saltarlo. Si la imagen se acepta, la interfaz lo indica antes de mostrar una clasificación.
 
 ## Arquitectura
 
@@ -94,7 +94,7 @@ npm.cmd run test:request-flow
 npm.cmd run build
 ```
 
-`tests/backend/test_api_contract.py` usa principalmente predictores falsos para comprobar el contrato HTTP; además prueba de forma determinista que el permiso de comparación limitada no altera logits ni el score de dominio. No demuestra exactitud. `tests/backend/test_checkpoint_inference.py` carga el checkpoint y el filtro desplegables y ejecuta una inferencia real sobre una imagen sintética creada en memoria; comprueba integración, no exactitud. `tests/backend/test_domain_guard.py` verifica el cálculo de similitud, persistencia y equivalencia de logits. La CI reproduce estas comprobaciones sin dataset privado ni entrenamiento.
+`tests/backend/test_api_contract.py` usa principalmente predictores falsos para comprobar el contrato HTTP y que un rechazo nunca exponga categorías ni puntuaciones, incluso si un cliente envía el antiguo campo de bypass. No demuestra exactitud. `tests/backend/test_checkpoint_inference.py` carga el checkpoint y el filtro desplegables y ejecuta una inferencia real sobre una imagen sintética creada en memoria; comprueba integración, no exactitud. `tests/backend/test_domain_guard.py` verifica el cálculo de similitud, la frontera inclusiva del umbral, persistencia y equivalencia de logits. La CI reproduce estas comprobaciones sin dataset privado ni entrenamiento.
 
 La comprobación E2E local con fotografías reales se mantiene separada porque requiere `data/raw` y la evidencia original, ambos excluidos de Git. `src/verify_val_e2e.py` fija primero 15 imágenes de VAL sin cargar el modelo y después compara inferencia directa con una API HTTP real. Sus resultados están en [reports/VAL_E2E_INTEGRATION.md](reports/VAL_E2E_INTEGRATION.md); no son una nueva evaluación global ni consultan TEST.
 
@@ -158,9 +158,10 @@ Render puede entrar en reposo en el plan gratuito; la primera predicción despu�
 - [Auditoría de confiabilidad web](reports/RELIABILITY_AUDIT.md)
 - [Resultado del experimento v2](reports/V2_PREPROCESSING_RESULTS.md)
 - [Filtro experimental de dominio](reports/DOMAIN_GUARD_RESULTS.md)
+- [Flujo vigente de aceptación y rechazo](reports/IMAGE_ACCEPTANCE_REJECTION.md)
 - [Protocolo de generalización externa](reports/DOMAIN_GENERALIZATION_V2_PROTOCOL.md)
 - [Auditoría CoffeeLeaf-CO y candidato del filtro](reports/COFFEELEAF_DOMAIN_GUARD_EXPERIMENT.md)
-- [Comparación limitada tras un rechazo](reports/DOMAIN_GUARD_LIMITED_OVERRIDE.md)
+- [Comparación limitada retirada (evidencia histórica)](reports/DOMAIN_GUARD_LIMITED_OVERRIDE.md)
 
 ## Licencia
 

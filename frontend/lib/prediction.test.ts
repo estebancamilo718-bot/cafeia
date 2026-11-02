@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 
-import { isPrediction, isPredictionForRequest } from "./prediction.ts";
+import { isPrediction } from "./prediction.ts";
 
 const accepted = {
   status: "classified",
@@ -23,6 +23,33 @@ const accepted = {
 
 test("accepts a coherent three-class response", () => {
   assert.equal(isPrediction(accepted), true);
+});
+
+test("accepts an uncertain classification without treating it as a rejection", () => {
+  assert.equal(
+    isPrediction({
+      ...accepted,
+      status: "uncertain",
+      score: 0.6,
+      scores: [
+        { category: "coffee___healthy", label: "Hoja sana", score: 0.6 },
+        { category: "coffee___red_spider_mite", label: "Ácaro rojo", score: 0.25 },
+        { category: "coffee___rust", label: "Roya", score: 0.15 },
+      ],
+      is_uncertain: true,
+    }),
+    true,
+  );
+});
+
+test("accepts a domain score exactly equal to the acceptance threshold", () => {
+  assert.equal(
+    isPrediction({
+      ...accepted,
+      domain_score: accepted.domain_threshold,
+    }),
+    true,
+  );
 });
 
 test("accepts an outside-domain response without coffee scores", () => {
@@ -56,7 +83,7 @@ test("rejects an outside-domain response that leaks a coffee category", () => {
   );
 });
 
-test("accepts an explicitly requested limited analysis with three scores", () => {
+test("rejects an outside-domain comparison that exposes three scores", () => {
   assert.equal(
     isPrediction({
       ...accepted,
@@ -64,19 +91,6 @@ test("accepts an explicitly requested limited analysis with three scores", () =>
       is_supported_image: false,
       domain_score: 0.31,
       message: "La imagen no coincide con los ejemplos conocidos.",
-    }),
-    true,
-  );
-});
-
-test("rejects a limited analysis that pretends the domain was confirmed", () => {
-  assert.equal(
-    isPrediction({
-      ...accepted,
-      status: "outside_domain_analyzed",
-      is_supported_image: true,
-      domain_score: 0.31,
-      message: "Resultado limitado.",
     }),
     false,
   );
@@ -109,17 +123,4 @@ test("rejects an outside-domain response that reaches the domain threshold", () 
     }),
     false,
   );
-});
-
-test("only accepts a limited comparison after an explicit request", () => {
-  const limited = {
-    ...accepted,
-    status: "outside_domain_analyzed",
-    is_supported_image: false,
-    domain_score: 0.31,
-    message: "La imagen no coincide con los ejemplos conocidos.",
-  };
-
-  assert.equal(isPredictionForRequest(limited, false), false);
-  assert.equal(isPredictionForRequest(limited, true), true);
 });
