@@ -38,7 +38,7 @@ Los scripts de preparación, entrenamiento y evaluación viven en `src/`. No se 
 
 Antes de habilitar el selector de fotografías, la interfaz solicita una aceptación explícita para enviar la imagen al backend configurado. Rechazar permite seguir consultando la página, pero mantiene bloqueados la carga y el análisis. La decisión puede revisarse o retirarse desde el pie de página; al retirarla se cancela cualquier solicitud y se elimina la selección actual de la interfaz.
 
-La decisión se conserva en `localStorage` bajo una clave versionada. CaféIA no instala cookies publicitarias ni de analítica. El backend valida el tipo, contenido y límite de 10 MB, procesa la fotografía en memoria y no la guarda.
+La decisión no se conserva en cookies, `localStorage` ni `sessionStorage`: solo dura durante la carga actual de la página. Al recargar o volver a entrar, CaféIA solicita nuevamente el permiso. CaféIA no instala cookies publicitarias ni de analítica. El backend valida el tipo, contenido y límite de 10 MB, procesa la fotografía en memoria y no la guarda.
 
 `frontend/next.config.ts` añade Content Security Policy, bloqueo de iframes, `nosniff`, política de referentes y permisos denegados para cámara, micrófono y geolocalización. `NEXT_PUBLIC_API_URL` debe estar definida durante la compilación de producción porque su origen se incorpora tanto al frontend como a `connect-src` de la CSP. Estas medidas reducen riesgos web comunes, pero no sustituyen HTTPS, revisión de dependencias ni supervisión operativa del despliegue.
 

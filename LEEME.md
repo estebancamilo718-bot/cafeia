@@ -42,7 +42,7 @@ La interfaz muestra antes del selector cuatro instrucciones: una sola hoja compl
 
 El backend carga el checkpoint y el filtro una vez en el arranque, exige sus hashes, verifica que ambos correspondan al mismo modelo y orden `sana → ácaro rojo → roya`, y no guarda la fotografía recibida.
 
-La interfaz exige consentimiento antes de habilitar el selector. La aceptación o rechazo se guarda únicamente en `localStorage`; no existen cookies publicitarias ni analítica. Si se retira el consentimiento desde el pie de página, se cancela la petición vigente y se elimina la fotografía seleccionada. `frontend/next.config.ts` fija CSP y encabezados de seguridad. En Vercel, `NEXT_PUBLIC_API_URL` debe existir durante el build para autorizar en `connect-src` únicamente el origen real del backend.
+La interfaz exige consentimiento antes de habilitar el selector. La aceptación o rechazo solo vale durante la carga actual: no se guarda en cookies, `localStorage` ni `sessionStorage`, y se solicita de nuevo al recargar o volver a entrar. No existen cookies publicitarias ni analítica. Si se retira el consentimiento desde el pie de página, se cancela la petición vigente y se elimina la fotografía seleccionada. `frontend/next.config.ts` fija CSP y encabezados de seguridad. En Vercel, `NEXT_PUBLIC_API_URL` debe existir durante el build para autorizar en `connect-src` únicamente el origen real del backend.
 
 ## 3. Versiones reproducibles
 

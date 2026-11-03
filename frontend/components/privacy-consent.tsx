@@ -157,6 +157,9 @@ export function PrivacyConsent({
               <p id="consent-summary" className="consent-copy">
                 Cuando pulses “Analizar hoja”, CaféIA usará la fotografía únicamente para mostrarte un resultado. No necesitas crear una cuenta y la imagen no se guarda.
               </p>
+              <p className="consent-session-note">
+                Este permiso solo vale mientras mantengas abierta esta carga de la página. Al recargar o volver a entrar, te lo pediremos de nuevo.
+              </p>
               <div className="consent-assurances">
                 <p><span aria-hidden="true">✓</span>No pedimos tu nombre ni datos de contacto.</p>
                 <p><span aria-hidden="true">✓</span>No usamos publicidad ni herramientas de seguimiento.</p>

@@ -34,8 +34,8 @@ EXPECTED_CLASS_ORDER = [
 ]
 DEFAULT_ALLOWED_ORIGINS = ("http://localhost:3000", "http://127.0.0.1:3000")
 OUTSIDE_DOMAIN_MESSAGE = (
-    "La imagen no alcanzó la similitud mínima con los ejemplos admitidos "
-    "de hojas de café. Toma otra fotografía de una sola hoja y vuelve a intentarlo."
+    "No pudimos confirmar que la imagen corresponda a una hoja de café que "
+    "CaféIA pueda analizar. Carga una fotografía clara de una sola hoja de café."
 )
 
 

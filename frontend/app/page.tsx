@@ -16,12 +16,11 @@ import { LatestRequestCoordinator } from "../lib/latest-request";
 import { isPrediction, type Prediction } from "../lib/prediction";
 import {
   canAnalyzeWithConsent,
-  parseStoredPrivacyConsent,
-  PRIVACY_CONSENT_STORAGE_KEY,
   type PrivacyConsentChoice,
 } from "../lib/privacy-consent";
 
 const API_URL = (process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000").replace(/\/$/, "");
+const LEGACY_PRIVACY_CONSENT_STORAGE_KEY = "cafeia_image_processing_consent_v1";
 const GUIDE_BY_CATEGORY: Record<string, string> = {
   coffee___healthy: "guia-sana",
   coffee___rust: "guia-roya",
@@ -115,16 +114,32 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
-    let storedChoice: PrivacyConsentChoice = null;
+    // El permiso es deliberadamente efímero: se solicita en cada carga de la página.
+    // Esta limpieza retira las decisiones persistidas por versiones anteriores.
     try {
-      storedChoice = parseStoredPrivacyConsent(
-        window.localStorage.getItem(PRIVACY_CONSENT_STORAGE_KEY),
-      );
+      window.localStorage.removeItem(LEGACY_PRIVACY_CONSENT_STORAGE_KEY);
     } catch {
       // La aplicación sigue funcionando si el navegador bloquea localStorage.
     }
-    setPrivacyChoice(storedChoice);
-    if (storedChoice === null) setPrivacyDialogOpen(true);
+    setPrivacyChoice(null);
+    setPrivacyDialogOpen(true);
+
+    function requireConsentAfterPageRestore(event: PageTransitionEvent) {
+      if (!event.persisted) return;
+      requestCoordinatorRef.current.replaceSelection();
+      setFile(null);
+      setPreviewUrl(null);
+      setResult(null);
+      setError(null);
+      setLoading(false);
+      setDragActive(false);
+      setPrivacyChoice(null);
+      setPrivacyDialogOpen(true);
+      if (inputRef.current) inputRef.current.value = "";
+    }
+
+    window.addEventListener("pageshow", requireConsentAfterPageRestore);
+    return () => window.removeEventListener("pageshow", requireConsentAfterPageRestore);
   }, []);
 
   useEffect(() => {
@@ -135,23 +150,18 @@ export default function Home() {
     return () => window.cancelAnimationFrame(frame);
   }, [error, loading, result]);
 
-  function savePrivacyChoice(choice: Exclude<PrivacyConsentChoice, null>) {
-    try {
-      window.localStorage.setItem(PRIVACY_CONSENT_STORAGE_KEY, choice);
-    } catch {
-      // La decisión permanece durante la sesión aunque no pueda persistirse.
-    }
+  function savePrivacyChoiceForCurrentPage(choice: Exclude<PrivacyConsentChoice, null>) {
     setPrivacyChoice(choice);
     setPrivacyDialogOpen(false);
   }
 
   function declinePrivacyConsent() {
     reset();
-    savePrivacyChoice("declined");
+    savePrivacyChoiceForCurrentPage("declined");
   }
 
   function acceptPrivacyConsent() {
-    savePrivacyChoice("accepted");
+    savePrivacyChoiceForCurrentPage("accepted");
     window.setTimeout(() => inputRef.current?.focus(), 0);
   }
 
@@ -352,7 +362,7 @@ export default function Home() {
                     <li><span aria-hidden="true">4</span><p>Fotografía haz y envés por separado; sube una imagen cada vez.</p></li>
                   </ol>
                   <p className="photo-guidance__note">
-                    CaféIA primero decide si la imagen puede analizarse. Si no alcanza la similitud mínima con sus ejemplos admitidos, la rechaza sin mostrar una categoría.
+                    CaféIA primero comprueba si reconoce una hoja de café que pueda analizar. Si no puede confirmarlo, la rechaza sin mostrar una categoría.
                   </p>
                 </aside>
 
@@ -361,7 +371,7 @@ export default function Home() {
                     <span className="consent-inline-icon" aria-hidden="true">
                       <svg viewBox="0 0 24 24"><path d="M12 3 5 6v5c0 4.6 2.9 8.3 7 10 4.1-1.7 7-5.4 7-10V6l-7-3Z"/><path d="m9.5 12 1.6 1.6 3.7-4"/></svg>
                     </span>
-                    <p><strong>Permiso activo.</strong> Ya puedes analizar la fotografía seleccionada.</p>
+                    <p><strong>Permiso activo durante esta visita.</strong> Ya puedes analizar la fotografía seleccionada.</p>
                     <button type="button" onClick={() => setPrivacyDialogOpen(true)}>Revisar</button>
                   </div>
                 ) : (
@@ -477,11 +487,11 @@ export default function Home() {
                       <span>Imagen rechazada para el análisis</span>
                     </div>
                     <h2 id="result-title" tabIndex={-1} className="mt-4 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
-                      Imagen rechazada
+                      No reconocimos una hoja de café
                     </h2>
                     <p className="mt-3 text-sm leading-6 text-[#52655d]">{result.message}</p>
                     <p className="mt-4 border-t border-[#a75236]/20 pt-3 text-sm leading-5 text-[#743d2b]">
-                      Repite la toma con una sola hoja completa, enfocada, con luz uniforme y un fondo sencillo. El rechazo no demuestra que la hoja no sea de café.
+                      Prueba con una sola hoja completa, enfocada, con luz uniforme y un fondo sencillo. El filtro puede rechazar una hoja válida si la fotografía es muy distinta de sus ejemplos.
                     </p>
                   </div>
                   <div className="mt-5 grid gap-3 sm:grid-cols-2">

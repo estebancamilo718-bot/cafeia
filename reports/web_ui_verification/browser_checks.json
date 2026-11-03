@@ -5,11 +5,21 @@
     "notice": {
       "hasNoStorageClaim": true,
       "hasNoAnalyticsClaim": true,
+      "explainsEphemeralPermission": true,
       "title": "Privacidad y consentimiento"
     },
     "declineBlockedUpload": true,
-    "storedChoice": "accepted",
-    "uploadEnabled": true
+    "afterAcceptance": {
+      "storedChoice": null,
+      "sessionChoice": null,
+      "uploadEnabled": true
+    },
+    "afterReload": {
+      "dialogVisible": true,
+      "uploadDisabled": true,
+      "legacyChoiceRemoved": true,
+      "sessionChoiceAbsent": true
+    }
   },
   "responsiveGridColumns": {
     "390": "358px",
@@ -59,7 +69,7 @@
     "hasAcceptedDecision": true
   },
   "outsideDomainState": {
-    "title": "Imagen rechazada",
+    "title": "No reconocimos una hoja de café",
     "hasRejectedDecision": true,
     "hasRequestedMessage": true,
     "hasRetryInstructions": true,
@@ -74,7 +84,8 @@
     "ariaLabel": "Reemplazar fotografía de la hoja"
   },
   "revocation": {
-    "storedChoice": "declined",
+    "storedChoice": null,
+    "sessionChoice": null,
     "uploadDisabled": true,
     "selectionCleared": true
   },
@@ -83,6 +94,7 @@
     "connection_error_1440.png",
     "consent_1440.png",
     "consent_390.png",
+    "consent_768.png",
     "guide_1440.png",
     "guide_390.png",
     "guide_768.png",

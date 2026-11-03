@@ -924,6 +924,18 @@ summary:focus-visible {
   line-height: 1.55rem;
 }
 
+.consent-session-note {
+  max-width: 42rem;
+  margin-top: 0.9rem;
+  border-left: 3px solid var(--terracotta);
+  border-radius: 0 0.55rem 0.55rem 0;
+  padding: 0.7rem 0.85rem;
+  color: #4f6259;
+  background: #f7f3eb;
+  font-size: 0.78rem;
+  line-height: 1.25rem;
+}
+
 .consent-assurances {
   display: grid;
   grid-template-columns: repeat(3, minmax(0, 1fr));

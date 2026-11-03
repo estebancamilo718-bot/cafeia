@@ -188,6 +188,8 @@ try {
   await waitFor(client, "document.querySelector('[role=dialog]') !== null", "aviso de privacidad inicial");
   await setViewport(client, 390);
   await screenshot(client, "consent_390.png");
+  await setViewport(client, 768);
+  await screenshot(client, "consent_768.png");
   await setViewport(client, 1440);
   await screenshot(client, "consent_1440.png");
 
@@ -196,6 +198,7 @@ try {
     `({
       hasNoStorageClaim: document.body.innerText.includes("la imagen no se guarda"),
       hasNoAnalyticsClaim: document.body.innerText.includes("No usamos publicidad ni herramientas de seguimiento"),
+      explainsEphemeralPermission: document.body.innerText.includes("Al recargar o volver a entrar, te lo pediremos de nuevo"),
       title: document.querySelector("#consent-title")?.textContent,
     })`,
   );
@@ -227,13 +230,42 @@ try {
     client,
     `({
       storedChoice: localStorage.getItem("cafeia_image_processing_consent_v1"),
+      sessionChoice: sessionStorage.getItem("cafeia_image_processing_consent_v1"),
       uploadEnabled: document.querySelector("#leaf-photo")?.disabled === false,
     })`,
+  );
+
+  await evaluate(
+    client,
+    `localStorage.setItem("cafeia_image_processing_consent_v1", "accepted")`,
+  );
+  await client.send("Page.reload", { ignoreCache: true });
+  await waitFor(client, "document.readyState === 'complete'", "recarga tras aceptar");
+  await waitFor(
+    client,
+    "document.querySelector('[role=dialog]') !== null && document.querySelector('#leaf-photo')?.disabled === true",
+    "consentimiento solicitado nuevamente tras recargar",
+  );
+  const reloadedConsentState = await evaluate(
+    client,
+    `({
+      dialogVisible: document.querySelector("[role=dialog]") !== null,
+      uploadDisabled: document.querySelector("#leaf-photo")?.disabled === true,
+      legacyChoiceRemoved: localStorage.getItem("cafeia_image_processing_consent_v1") === null,
+      sessionChoiceAbsent: sessionStorage.getItem("cafeia_image_processing_consent_v1") === null,
+    })`,
+  );
+  await clickButton(client, "Aceptar y continuar");
+  await waitFor(
+    client,
+    "document.querySelector('[role=dialog]') === null && document.querySelector('#leaf-photo')?.disabled === false",
+    "nueva aceptación después de recargar",
   );
   const consentState = {
     notice: consentNotice,
     declineBlockedUpload,
-    ...acceptedConsentState,
+    afterAcceptance: acceptedConsentState,
+    afterReload: reloadedConsentState,
   };
 
   const responsive = {};
@@ -355,7 +387,7 @@ try {
       `({
         title: document.querySelector("#result-title")?.textContent,
         hasRejectedDecision: document.querySelector(".result-summary__status")?.textContent?.includes("Imagen rechazada para el análisis") ?? false,
-        hasRequestedMessage: document.body.innerText.includes("no alcanzó la similitud mínima"),
+        hasRequestedMessage: document.body.innerText.includes("No pudimos confirmar que la imagen corresponda a una hoja de café"),
         hasRetryInstructions: document.body.innerText.includes("una sola hoja completa, enfocada, con luz uniforme y un fondo sencillo"),
         hidesCoffeeScores: !document.body.innerText.includes("Puntuaciones por clase"),
         hasNoBypass: ![...document.querySelectorAll("button")].some((button) => button.textContent.includes("Analizar de todos modos")),
@@ -416,6 +448,7 @@ try {
     client,
     `({
       storedChoice: localStorage.getItem("cafeia_image_processing_consent_v1"),
+      sessionChoice: sessionStorage.getItem("cafeia_image_processing_consent_v1"),
       uploadDisabled: document.querySelector("#leaf-photo")?.disabled === true,
       selectionCleared: !document.body.innerText.includes(${JSON.stringify(path.basename(uncertainImage))}),
     })`,
@@ -435,6 +468,21 @@ try {
       `instrucciones previas al selector a ${width} px`,
     );
   }
+  assertCheck(
+    consentState.notice?.title === "Privacidad y consentimiento" &&
+      consentState.notice.hasNoStorageClaim &&
+      consentState.notice.hasNoAnalyticsClaim &&
+      consentState.notice.explainsEphemeralPermission &&
+      consentState.declineBlockedUpload &&
+      consentState.afterAcceptance?.storedChoice === null &&
+      consentState.afterAcceptance?.sessionChoice === null &&
+      consentState.afterAcceptance?.uploadEnabled &&
+      consentState.afterReload?.dialogVisible &&
+      consentState.afterReload?.uploadDisabled &&
+      consentState.afterReload?.legacyChoiceRemoved &&
+      consentState.afterReload?.sessionChoiceAbsent,
+    "consentimiento efímero solicitado en cada carga",
+  );
   assertCheck(
     pendingReplacementState.currentPhotoVisible &&
       pendingReplacementState.staleResultHidden &&
@@ -456,7 +504,7 @@ try {
   );
   if (outsideDomainImage) {
     assertCheck(
-      outsideDomainState?.title === "Imagen rechazada" &&
+      outsideDomainState?.title === "No reconocimos una hoja de café" &&
         outsideDomainState.hasRejectedDecision &&
         outsideDomainState.hasRequestedMessage &&
         outsideDomainState.hasRetryInstructions &&
@@ -473,7 +521,8 @@ try {
     "foco y etiqueta del selector por teclado",
   );
   assertCheck(
-    revocationState.storedChoice === "declined" &&
+    revocationState.storedChoice === null &&
+      revocationState.sessionChoice === null &&
       revocationState.uploadDisabled &&
       revocationState.selectionCleared,
     "retirada de consentimiento",
