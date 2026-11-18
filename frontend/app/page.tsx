@@ -10,7 +10,7 @@ import {
   useState,
 } from "react";
 
-import { AgentPanel } from "../components/agent-panel";
+import { AgentPanel, McpSourceTag } from "../components/agent-panel";
 import { PrivacyConsent } from "../components/privacy-consent";
 import {
   DEFAULT_CITY,
@@ -535,7 +535,10 @@ export default function Home() {
                       <span className="result-status-icon" aria-hidden="true">!</span>
                       <span>Imagen rechazada para el análisis</span>
                     </div>
-                    <h2 id="result-title" tabIndex={-1} className="mt-4 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
+                    <div className="mt-3">
+                      <McpSourceTag sensor="Sensor visual" server="cafeia-clasificador" />
+                    </div>
+                    <h2 id="result-title" tabIndex={-1} className="mt-3 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
                       No reconocimos una hoja de café
                     </h2>
                     <p className="mt-3 text-sm leading-6 text-[#52655d]">{result.message}</p>
@@ -570,7 +573,10 @@ export default function Home() {
                       </span>
                       <span>Imagen aceptada para el análisis</span>
                     </div>
-                    <h2 id="result-title" tabIndex={-1} className="mt-4 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
+                    <div className="mt-3">
+                      <McpSourceTag sensor="Sensor visual" server="cafeia-clasificador" />
+                    </div>
+                    <h2 id="result-title" tabIndex={-1} className="mt-3 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
                       {result.is_uncertain
                         ? "Resultado incierto"
                         : `Clasificación orientativa: ${result.category_label}`}

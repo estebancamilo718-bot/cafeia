@@ -18,6 +18,17 @@ const STEP_LABEL: Record<AgentStep["estado"], string> = {
   omitida: "No consultada",
 };
 
+export function McpSourceTag({ sensor, server }: { sensor: string; server: string }) {
+  return (
+    <p className="text-[0.65rem] font-extrabold tracking-[0.12em] text-[#687a73] uppercase">
+      {sensor} · MCP{" "}
+      <code className="ml-1 rounded bg-white/70 px-1.5 py-0.5 font-mono text-[0.7rem] font-bold tracking-normal text-[#285646] normal-case">
+        {server}
+      </code>
+    </p>
+  );
+}
+
 function formatNumber(value: number | null, unit: string) {
   if (value === null) return "—";
   return `${value.toLocaleString("es-CO", { maximumFractionDigits: 1 })}${unit}`;
@@ -38,7 +49,7 @@ export function AgentPanel({ weather, weatherMessage, steps }: AgentPanelProps) 
       <section aria-labelledby="weather-title" className="rounded-xl border border-[#163f31]/12 bg-[#f6f8f4] p-4">
         <div className="flex items-start justify-between gap-3">
           <div>
-            <p className="text-[0.65rem] font-extrabold tracking-[0.12em] text-[#687a73] uppercase">Sensor ambiental · MCP</p>
+            <McpSourceTag sensor="Sensor ambiental" server="cafeia-clima" />
             <h3 id="weather-title" className="mt-1 text-base font-extrabold text-[#11382b]">
               {location
                 ? `Clima en ${location.nombre}${location.departamento ? `, ${location.departamento}` : ""}`
