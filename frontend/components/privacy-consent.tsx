@@ -177,6 +177,7 @@ export function PrivacyConsent({
                 <li><span>02</span><div><strong>La analizamos</strong><p>El análisis solo comienza cuando pulsas “Analizar hoja”.</p></div></li>
                 <li><span>03</span><div><strong>Ves el resultado</strong><p>Después puedes elegir otra fotografía.</p></div></li>
               </ol>
+              <p className="consent-fine-print">Para mostrar el clima, CaféIA envía a Open-Meteo solo el nombre de la ciudad que escribas; la fotografía no sale de CaféIA.</p>
               <p className="consent-fine-print">Puedes retirar el permiso desde “Privacidad y consentimiento”, al final de la página. La fotografía seleccionada se quitará de la pantalla.</p>
             </section>
           )}

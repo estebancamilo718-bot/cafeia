@@ -11,7 +11,7 @@
     "dev": "next dev",
     "build": "next build --webpack",
     "start": "next start",
-    "test:request-flow": "node --test --experimental-strip-types lib/latest-request.test.ts lib/prediction.test.ts lib/privacy-consent.test.ts"
+    "test:request-flow": "node --test --experimental-strip-types lib/latest-request.test.ts lib/prediction.test.ts lib/privacy-consent.test.ts lib/analysis.test.ts"
   },
   "dependencies": {
     "next": "16.3.5",
