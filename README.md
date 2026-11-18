@@ -25,14 +25,29 @@ El flujo separa la decisión de aceptación de la clasificación. El filtro comp
 ```text
 Navegador
   └─ frontend/ (Next.js, TypeScript y Tailwind)
-       └─ POST /predict
-            └─ backend/main.py (FastAPI)
-                 ├─ src/common.py (arquitectura y preprocesamiento)
-                 ├─ models/coffee_domain_guard.pt (barrera experimental)
-                 └─ models/mobilenet_finetuned_epoch6.pt (tres clases)
+       └─ POST /analizar  (foto + ciudad)
+            └─ backend/main.py (FastAPI = host del agente, con un cliente MCP)
+                 ├─ MCP cafeia-clasificador → backend/mcp_servidores.py
+                 │    ├─ src/common.py (arquitectura y preprocesamiento)
+                 │    ├─ models/coffee_domain_guard.pt (barrera experimental)
+                 │    └─ models/mobilenet_finetuned_epoch6.pt (tres clases)
+                 └─ MCP cafeia-clima → backend/clima.py → Open-Meteo
 ```
 
-Los scripts de preparación, entrenamiento y evaluación viven en `src/`. No se ejecutan al usar la aplicación web.
+`POST /predict` sigue disponible con el mismo contrato. Los scripts de preparación, entrenamiento y evaluación viven en `src/`. No se ejecutan al usar la aplicación web.
+
+## Servidores MCP
+
+CaféIA incluye dos servidores MCP (Model Context Protocol) que funcionan como sensores del agente:
+
+| Servidor | Ruta HTTP | Herramientas |
+|---|---|---|
+| `cafeia-clasificador` (sensor visual) | `/clasificador/mcp` | `clasificar_hoja`, `estado_modelo` |
+| `cafeia-clima` (sensor ambiental) | `/clima/mcp` | `clima_actual`, `pronostico` |
+
+`POST /analizar` los consulta mediante un cliente MCP. Siempre clasifica la hoja y, solo si la imagen fue aceptada, consulta el clima de la ciudad elegida en Open-Meteo, un servicio gratuito sin clave. La tarjeta de clima muestra datos, no un riesgo de enfermedad. Si el clima falla, el diagnóstico se muestra igual.
+
+Cualquier cliente MCP puede conectarse por Streamable HTTP. Por ejemplo, con MCP Inspector (`npx @modelcontextprotocol/inspector`) se usa la URL `http://127.0.0.1:8000/clima/mcp` en local o `https://cafeia-jiwk.onrender.com/clima/mcp` en producción. Detalles, seguridad y verificación en [reports/MCP_INTEGRATION.md](reports/MCP_INTEGRATION.md).
 
 ## Consentimiento, privacidad y seguridad web
 
@@ -94,7 +109,7 @@ npm.cmd run test:request-flow
 npm.cmd run build
 ```
 
-`tests/backend/test_api_contract.py` usa principalmente predictores falsos para comprobar el contrato HTTP y que un rechazo nunca exponga categorías ni puntuaciones, incluso si un cliente envía el antiguo campo de bypass. No demuestra exactitud. `tests/backend/test_checkpoint_inference.py` carga el checkpoint y el filtro desplegables y ejecuta una inferencia real sobre una imagen sintética creada en memoria; comprueba integración, no exactitud. `tests/backend/test_domain_guard.py` verifica el cálculo de similitud, la frontera inclusiva del umbral, persistencia y equivalencia de logits. La CI reproduce estas comprobaciones sin dataset privado ni entrenamiento.
+`tests/backend/test_api_contract.py` usa principalmente predictores falsos para comprobar el contrato HTTP y que un rechazo nunca exponga categorías ni puntuaciones, incluso si un cliente envía el antiguo campo de bypass. No demuestra exactitud. `tests/backend/test_checkpoint_inference.py` carga el checkpoint y el filtro desplegables y ejecuta una inferencia real sobre una imagen sintética creada en memoria; comprueba integración, no exactitud. `tests/backend/test_domain_guard.py` verifica el cálculo de similitud, la frontera inclusiva del umbral, persistencia y equivalencia de logits. `tests/backend/test_mcp.py` prueba los dos servidores MCP y el agente `/analizar` con un predictor falso y un Open-Meteo simulado, sin salir a internet. La CI reproduce estas comprobaciones sin dataset privado ni entrenamiento.
 
 La comprobación E2E local con fotografías reales se mantiene separada porque requiere `data/raw` y la evidencia original, ambos excluidos de Git. `src/verify_val_e2e.py` fija primero 15 imágenes de VAL sin cargar el modelo y después compara inferencia directa con una API HTTP real. Sus resultados están en [reports/VAL_E2E_INTEGRATION.md](reports/VAL_E2E_INTEGRATION.md); no son una nueva evaluación global ni consultan TEST.
 
