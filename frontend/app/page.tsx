@@ -10,10 +10,20 @@ import {
   useState,
 } from "react";
 
+import { AgentPanel, McpSourceTag } from "../components/agent-panel";
 import { PrivacyConsent } from "../components/privacy-consent";
+import {
+  DEFAULT_CITY,
+  MAX_CITY_LENGTH,
+  SUGGESTED_CITIES,
+  isAnalysis,
+  normalizeCity,
+  type AgentStep,
+  type Weather,
+} from "../lib/analysis";
 import { analysisFailureMessage, validateSelectedImage } from "../lib/analysis-input";
 import { LatestRequestCoordinator } from "../lib/latest-request";
-import { isPrediction, type Prediction } from "../lib/prediction";
+import type { Prediction } from "../lib/prediction";
 import {
   canAnalyzeWithConsent,
   type PrivacyConsentChoice,
@@ -91,6 +101,12 @@ export default function Home() {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [result, setResult] = useState<Prediction | null>(null);
+  const [agentContext, setAgentContext] = useState<{
+    weather: Weather | null;
+    weatherMessage: string | null;
+    steps: AgentStep[];
+  } | null>(null);
+  const [city, setCity] = useState<string>(DEFAULT_CITY);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [dragActive, setDragActive] = useState(false);
@@ -130,6 +146,7 @@ export default function Home() {
       setFile(null);
       setPreviewUrl(null);
       setResult(null);
+      setAgentContext(null);
       setError(null);
       setLoading(false);
       setDragActive(false);
@@ -170,6 +187,7 @@ export default function Home() {
     setFile(null);
     setPreviewUrl(null);
     setResult(null);
+    setAgentContext(null);
     setError(null);
     setLoading(false);
     setDragActive(false);
@@ -189,6 +207,7 @@ export default function Home() {
     setLoading(false);
     setError(null);
     setResult(null);
+    setAgentContext(null);
 
     if (!selected) {
       reset();
@@ -233,22 +252,29 @@ export default function Home() {
     setLoading(true);
     setError(null);
     setResult(null);
+    setAgentContext(null);
     const body = new FormData();
     body.append("file", file);
+    body.append("ciudad", normalizeCity(city) || DEFAULT_CITY);
 
     try {
-      const response = await fetch(`${API_URL}/predict`, {
+      const response = await fetch(`${API_URL}/analizar`, {
         method: "POST",
         body,
         signal: requestTicket.controller.signal,
       });
       const payload: unknown = await response.json().catch(() => null);
       if (!response.ok) throw new Error(errorMessage(payload));
-      if (!isPrediction(payload)) {
+      if (!isAnalysis(payload)) {
         throw new Error("No pudimos leer el resultado. Inténtalo de nuevo.");
       }
       if (requestCoordinatorRef.current.isCurrent(requestTicket)) {
-        setResult(payload);
+        setResult(payload.prediccion);
+        setAgentContext({
+          weather: payload.clima,
+          weatherMessage: payload.clima_mensaje,
+          steps: payload.pasos,
+        });
       }
     } catch (reason) {
       if (requestCoordinatorRef.current.isCurrent(requestTicket)) {
@@ -443,6 +469,29 @@ export default function Home() {
                   )}
                 </label>
 
+                <div>
+                  <label htmlFor="leaf-city" className="text-sm font-extrabold text-[#11382b]">
+                    Ciudad o municipio del cultivo
+                  </label>
+                  <p id="leaf-city-help" className="mt-0.5 text-xs leading-5 text-[#667871]">
+                    Se usa para consultar el clima de la zona. Solo se envía el nombre de la ciudad, nunca la fotografía.
+                  </p>
+                  <input
+                    id="leaf-city"
+                    type="text"
+                    list="leaf-city-options"
+                    value={city}
+                    maxLength={MAX_CITY_LENGTH}
+                    autoComplete="address-level2"
+                    aria-describedby="leaf-city-help"
+                    onChange={(event) => setCity(event.target.value)}
+                    className="mt-2 w-full rounded-lg border border-[#c7d2cc] bg-white px-3 py-2.5 text-sm text-[#11382b] shadow-sm focus:border-[#285646] focus:ring-3 focus:ring-[#285646]/25 focus:outline-none"
+                  />
+                  <datalist id="leaf-city-options">
+                    {SUGGESTED_CITIES.map((option) => <option key={option} value={option} />)}
+                  </datalist>
+                </div>
+
                 {error && (
                   <div role="alert" className="error-alert">
                     <svg className="mt-0.5 h-5 w-5 shrink-0 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="9"/><path d="M12 7v6M12 17h.01"/></svg>
@@ -486,7 +535,10 @@ export default function Home() {
                       <span className="result-status-icon" aria-hidden="true">!</span>
                       <span>Imagen rechazada para el análisis</span>
                     </div>
-                    <h2 id="result-title" tabIndex={-1} className="mt-4 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
+                    <div className="mt-3">
+                      <McpSourceTag sensor="Sensor visual" server="cafeia-clasificador" />
+                    </div>
+                    <h2 id="result-title" tabIndex={-1} className="mt-3 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
                       No reconocimos una hoja de café
                     </h2>
                     <p className="mt-3 text-sm leading-6 text-[#52655d]">{result.message}</p>
@@ -503,6 +555,14 @@ export default function Home() {
                       <svg className="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
                     </a>
                   </div>
+
+                  {agentContext && (
+                    <AgentPanel
+                      weather={agentContext.weather}
+                      weatherMessage={agentContext.weatherMessage}
+                      steps={agentContext.steps}
+                    />
+                  )}
                 </div>
               ) : result ? (
                 <div className="mt-5">
@@ -513,7 +573,10 @@ export default function Home() {
                       </span>
                       <span>Imagen aceptada para el análisis</span>
                     </div>
-                    <h2 id="result-title" tabIndex={-1} className="mt-4 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
+                    <div className="mt-3">
+                      <McpSourceTag sensor="Sensor visual" server="cafeia-clasificador" />
+                    </div>
+                    <h2 id="result-title" tabIndex={-1} className="mt-3 text-2xl font-black tracking-[-0.035em] text-[#11382b] sm:text-[1.75rem]">
                       {result.is_uncertain
                         ? "Resultado incierto"
                         : `Clasificación orientativa: ${result.category_label}`}
@@ -578,6 +641,14 @@ export default function Home() {
                       <svg className="h-4 w-4 fill-none stroke-current stroke-2" viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14M14 7l5 5-5 5"/></svg>
                     </a>
                   </div>
+
+                  {agentContext && (
+                    <AgentPanel
+                      weather={agentContext.weather}
+                      weatherMessage={agentContext.weatherMessage}
+                      steps={agentContext.steps}
+                    />
+                  )}
                 </div>
               ) : error ? (
                 <div className="result-stage">

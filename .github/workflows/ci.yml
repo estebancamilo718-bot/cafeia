@@ -12,7 +12,8 @@ permissions:
 jobs:
   backend:
     name: Backend y checkpoint real
-    runs-on: ubuntu-latest
+    # Fijado a 24.04: setup-python no ofrece 3.11.9 (la versión de Render) en ubuntu-latest (26.04).
+    runs-on: ubuntu-24.04
     timeout-minutes: 25
     env:
       PYTHONDONTWRITEBYTECODE: "1"

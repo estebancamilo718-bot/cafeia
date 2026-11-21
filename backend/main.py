@@ -1,21 +1,33 @@
 from __future__ import annotations
 
+import base64
 import hashlib
 import os
 import warnings
-from contextlib import asynccontextmanager
+from collections.abc import AsyncIterator
+from contextlib import AsyncExitStack, asynccontextmanager
+from dataclasses import dataclass
 from io import BytesIO
 from pathlib import Path
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
+import anyio
+import httpx2 as httpx
 import torch
-from fastapi import FastAPI, File, HTTPException, Request, UploadFile
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
-from pydantic import BaseModel, Field, model_validator
+from fastapi.responses import JSONResponse
+from mcp import Client
+from mcp_types import CallToolResult
+from pydantic import BaseModel, Field, ValidationError, model_validator
 from PIL import Image, ImageOps, UnidentifiedImageError
 
+from backend.clima import CIUDAD_PREDETERMINADA, MAX_LARGO_CIUDAD, ClimaActual, Pronostico
 from src.common import ROOT, load_checkpoint, transform
 from src.domain_guard import DomainGuard, mobilenet_logits_and_embedding
+
+if TYPE_CHECKING:
+    from mcp.server.mcpserver import MCPServer
 
 MAX_FILE_SIZE = 10 * 1024 * 1024
 READ_CHUNK_SIZE = 1024 * 1024
@@ -37,6 +49,9 @@ OUTSIDE_DOMAIN_MESSAGE = (
     "No pudimos confirmar que la imagen corresponda a una hoja de café que "
     "CaféIA pueda analizar. Carga una fotografía clara de una sola hoja de café."
 )
+DIAS_PRONOSTICO_AGENTE = 3
+TIEMPO_MAXIMO_CLIMA_SEGUNDOS = 15.0
+CLIMA_OMITIDO_MESSAGE = "El agente no consultó el clima porque la imagen fue rechazada."
 
 
 class ClassScore(BaseModel):
@@ -123,6 +138,31 @@ class PredictionResponse(BaseModel):
             or self.status != ("uncertain" if self.is_uncertain else "classified")
         ):
             raise ValueError("La clasificación normal contradice el estado de dominio")
+        return self
+
+
+class PasoAgente(BaseModel):
+    servidor: str
+    herramienta: str
+    estado: Literal["ok", "error", "omitida"]
+    detalle: str | None = None
+
+
+class ClimaDelAnalisis(BaseModel):
+    actual: ClimaActual
+    pronostico: Pronostico
+
+
+class AnalisisResponse(BaseModel):
+    prediccion: PredictionResponse
+    clima: ClimaDelAnalisis | None = None
+    clima_mensaje: str | None = None
+    pasos: list[PasoAgente]
+
+    @model_validator(mode="after")
+    def validate_climate_message(self) -> "AnalisisResponse":
+        if (self.clima is None) == (self.clima_mensaje is None):
+            raise ValueError("El análisis debe traer el clima o explicar por qué no lo trae")
         return self
 
 
@@ -286,6 +326,46 @@ def _allowed_origins() -> list[str]:
     return origins
 
 
+@dataclass(frozen=True)
+class ServidoresMCP:
+    clasificador: MCPServer
+    clima: MCPServer
+
+
+@asynccontextmanager
+async def iniciar_mcp(app: FastAPI, cliente_http: httpx.AsyncClient) -> AsyncIterator[None]:
+    """Crea los dos servidores MCP y deja listas sus rutas HTTP.
+
+    Se crean en cada arranque porque el gestor HTTP de cada servidor solo puede
+    iniciarse una vez. El clasificador lee el predictor de ``app.state`` en cada
+    llamada, así que usa exactamente el mismo modelo que ``/predict``.
+    """
+    # Importación diferida: mcp_servidores importa los modelos de este módulo.
+    from backend.mcp_servidores import (
+        aplicacion_http,
+        crear_servidor_clasificador,
+        crear_servidor_clima,
+    )
+
+    servidores = ServidoresMCP(
+        clasificador=crear_servidor_clasificador(lambda: app.state.predictor),
+        clima=crear_servidor_clima(cliente_http),
+    )
+    aplicaciones = {
+        "clasificador": aplicacion_http(servidores.clasificador),
+        "clima": aplicacion_http(servidores.clima),
+    }
+    async with AsyncExitStack() as pila:
+        for servidor in (servidores.clasificador, servidores.clima):
+            await pila.enter_async_context(servidor.session_manager.run())
+        app.state.mcp = servidores
+        app.state.mcp_http = aplicaciones
+        try:
+            yield
+        finally:
+            del app.state.mcp, app.state.mcp_http
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     checkpoint_path = _checkpoint_path()
@@ -301,13 +381,33 @@ async def lifespan(app: FastAPI):
         domain_guard_path=domain_guard_path,
         expected_domain_guard_sha256=_expected_sha256("DOMAIN_GUARD_SHA256"),
     )
-    yield
+    async with httpx.AsyncClient(headers={"User-Agent": "CafeIA/0.4"}) as cliente_http:
+        async with iniciar_mcp(app, cliente_http):
+            yield
+
+
+class _PuertaMCP:
+    """Entrega las solicitudes HTTP al servidor MCP creado en el arranque."""
+
+    def __init__(self, nombre: str) -> None:
+        self.nombre = nombre
+
+    async def __call__(self, scope, receive, send) -> None:
+        aplicacion = getattr(scope["app"].state, "mcp_http", {}).get(self.nombre)
+        if aplicacion is None:
+            respuesta = JSONResponse({"detail": "Servidor MCP no disponible."}, status_code=503)
+            await respuesta(scope, receive, send)
+            return
+        await aplicacion(scope, receive, send)
 
 
 app = FastAPI(
     title="CaféIA API",
-    description="API de apoyo para clasificación visual de hojas de café en tres categorías.",
-    version="0.3.0",
+    description=(
+        "API de apoyo para clasificación visual de hojas de café en tres categorías. "
+        "Publica dos servidores MCP: /clasificador/mcp y /clima/mcp."
+    ),
+    version="0.4.0",
     lifespan=lifespan,
 )
 app.add_middleware(
@@ -317,6 +417,8 @@ app.add_middleware(
     allow_methods=["GET", "POST"],
     allow_headers=["Content-Type"],
 )
+app.mount("/clasificador", _PuertaMCP("clasificador"))
+app.mount("/clima", _PuertaMCP("clima"))
 
 
 async def _read_upload(upload: UploadFile) -> bytes:
@@ -379,11 +481,8 @@ def health(request: Request) -> HealthResponse:
     )
 
 
-@app.post("/predict", response_model=PredictionResponse)
-async def predict(
-    request: Request,
-    file: UploadFile = File(...),
-) -> PredictionResponse:
+async def _read_photo(file: UploadFile) -> tuple[bytes, str, Image.Image]:
+    """Valida extensión, tipo, tamaño y contenido; devuelve bytes, formato e imagen."""
     filename = file.filename or ""
     extension = Path(filename).suffix.lower()
     if extension not in ALLOWED_EXTENSIONS:
@@ -398,6 +497,100 @@ async def predict(
     finally:
         await file.close()
 
-    image = _decode_image(data, ALLOWED_EXTENSIONS[extension])
+    image_format = ALLOWED_EXTENSIONS[extension]
+    return data, image_format, _decode_image(data, image_format)
+
+
+@app.post("/predict", response_model=PredictionResponse)
+async def predict(
+    request: Request,
+    file: UploadFile = File(...),
+) -> PredictionResponse:
+    _, _, image = await _read_photo(file)
     predictor: Predictor = request.app.state.predictor
     return predictor.predict(image)
+
+
+def _tool_error_text(result: CallToolResult) -> str:
+    text = " ".join(block.text for block in result.content if block.type == "text").strip()
+    # MCPServer antepone "Error executing tool <nombre>: " al mensaje de la herramienta.
+    prefix, separator, message = text.partition(": ")
+    if separator and prefix.startswith("Error executing tool"):
+        return message
+    return text or "La herramienta no devolvió detalles."
+
+
+async def _consult_climate(
+    servidor: MCPServer,
+    ciudad: str,
+    pasos: list[PasoAgente],
+) -> tuple[ClimaDelAnalisis | None, str | None]:
+    nombre = "cafeia-clima"
+    try:
+        with anyio.fail_after(TIEMPO_MAXIMO_CLIMA_SEGUNDOS):
+            async with Client(servidor, mode="legacy") as cliente:
+                actual = await cliente.call_tool("clima_actual", {"ciudad": ciudad})
+                if actual.is_error:
+                    mensaje = _tool_error_text(actual)
+                    pasos.append(PasoAgente(servidor=nombre, herramienta="clima_actual", estado="error", detalle=mensaje))
+                    pasos.append(PasoAgente(servidor=nombre, herramienta="pronostico", estado="omitida",
+                                            detalle="No se consultó porque falló el clima actual."))
+                    return None, mensaje
+                pasos.append(PasoAgente(servidor=nombre, herramienta="clima_actual", estado="ok"))
+
+                pronostico = await cliente.call_tool(
+                    "pronostico", {"ciudad": ciudad, "dias": DIAS_PRONOSTICO_AGENTE}
+                )
+                if pronostico.is_error:
+                    mensaje = _tool_error_text(pronostico)
+                    pasos.append(PasoAgente(servidor=nombre, herramienta="pronostico", estado="error", detalle=mensaje))
+                    return None, mensaje
+                pasos.append(PasoAgente(servidor=nombre, herramienta="pronostico", estado="ok"))
+                return ClimaDelAnalisis(
+                    actual=ClimaActual.model_validate(actual.structured_content),
+                    pronostico=Pronostico.model_validate(pronostico.structured_content),
+                ), None
+    except TimeoutError:
+        mensaje = "El servicio de clima tardó demasiado en responder."
+    except ValidationError:
+        mensaje = "El servicio de clima devolvió datos incompletos."
+    pasos.append(PasoAgente(servidor=nombre, herramienta="clima", estado="error", detalle=mensaje))
+    return None, mensaje
+
+
+@app.post("/analizar", response_model=AnalisisResponse)
+async def analizar(
+    request: Request,
+    file: UploadFile = File(...),
+    ciudad: str = Form(CIUDAD_PREDETERMINADA, max_length=MAX_LARGO_CIUDAD),
+) -> AnalisisResponse:
+    """Agente CaféIA: consulta sus dos sensores a través de un cliente MCP.
+
+    Regla del agente: siempre usa el sensor visual; solo consulta el sensor
+    ambiental si la imagen fue aceptada como una hoja de café analizable.
+    """
+    data, image_format, _ = await _read_photo(file)
+    servidores: ServidoresMCP = request.app.state.mcp
+    pasos: list[PasoAgente] = []
+
+    async with Client(servidores.clasificador, mode="legacy") as cliente:
+        resultado = await cliente.call_tool(
+            "clasificar_hoja",
+            {
+                "imagen_base64": base64.b64encode(data).decode("ascii"),
+                "formato": image_format.lower(),
+            },
+        )
+    if resultado.is_error:
+        # La imagen ya fue validada arriba; un error aquí es interno y no se detalla.
+        raise HTTPException(status_code=502, detail="El sensor de clasificación no pudo analizar la fotografía.")
+    prediccion = PredictionResponse.model_validate(resultado.structured_content)
+    pasos.append(PasoAgente(servidor="cafeia-clasificador", herramienta="clasificar_hoja", estado="ok"))
+
+    if prediccion.status == "outside_domain":
+        pasos.append(PasoAgente(servidor="cafeia-clima", herramienta="clima_actual", estado="omitida",
+                                detalle=CLIMA_OMITIDO_MESSAGE))
+        return AnalisisResponse(prediccion=prediccion, clima_mensaje=CLIMA_OMITIDO_MESSAGE, pasos=pasos)
+
+    clima, clima_mensaje = await _consult_climate(servidores.clima, ciudad, pasos)
+    return AnalisisResponse(prediccion=prediccion, clima=clima, clima_mensaje=clima_mensaje, pasos=pasos)
