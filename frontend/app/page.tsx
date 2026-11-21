@@ -130,6 +130,13 @@ export default function Home() {
   }, []);
 
   useEffect(() => {
+    // Render gratuito suspende la API tras un rato sin uso. Al aceptar el permiso,
+    // una consulta a /health (sin datos del usuario) la despierta mientras se elige la foto.
+    if (!consentAccepted) return;
+    fetch(`${API_URL}/health`, { cache: "no-store" }).catch(() => undefined);
+  }, [consentAccepted]);
+
+  useEffect(() => {
     // El permiso es deliberadamente efímero: se solicita en cada carga de la página.
     // Esta limpieza retira las decisiones persistidas por versiones anteriores.
     try {
@@ -525,6 +532,9 @@ export default function Home() {
                     <span className="analysis-loader mx-auto" aria-hidden="true" />
                     <h2 id="result-title" className="mt-6 text-2xl font-black tracking-[-0.03em] text-[#11382b]">Revisando la fotografía</h2>
                     <p className="mt-2 text-sm leading-6 text-[#667871]">Primero comprobamos si la imagen puede analizarse. Si es aceptada, la comparamos con las tres categorías.</p>
+                    <p className="mt-3 rounded-lg bg-[#f6f8f4] px-3 py-2 text-xs leading-5 text-[#52655d]">
+                      El servidor usa un plan gratuito que se suspende tras un rato sin uso. Si estuvo inactivo, el primer análisis puede tardar alrededor de un minuto mientras se activa; los siguientes son inmediatos.
+                    </p>
                     <p className="mt-3 text-xs leading-5 text-[#71827b]">Si reemplazas la fotografía, esta solicitud se cancelará.</p>
                   </div>
                 </div>

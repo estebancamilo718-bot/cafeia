@@ -154,7 +154,9 @@ La configuración reproducible permanece en el repositorio:
 - Render debe recibir `CORS_ALLOWED_ORIGINS` con el origen HTTPS exacto de Vercel.
 - Render carga y verifica tanto `MODEL_PATH`/`MODEL_SHA256` como `DOMAIN_GUARD_PATH`/`DOMAIN_GUARD_SHA256`.
 
-Render puede entrar en reposo en el plan gratuito; la primera predicción después de un periodo sin uso puede tardar mientras el servicio inicia y carga los artefactos. Las solicitudes siguientes suelen ser más rápidas. Tras cada despliegue se debe comprobar `/health`, el hash del modelo, CORS y el flujo real desde Vercel.
+Render puede entrar en reposo en el plan gratuito; la primera predicción después de un periodo sin uso puede tardar alrededor de un minuto mientras el servicio inicia y carga los artefactos. Las solicitudes siguientes suelen ser más rápidas. Para reducir la espera, la web consulta `/health` en cuanto el usuario acepta el permiso, y la pantalla de carga avisa que el primer análisis puede tardar. Tras cada despliegue se debe comprobar `/health`, el hash del modelo, CORS y el flujo real desde Vercel.
+
+El servicio actual de Render instala `requirements.txt` (comando configurado en su panel), mientras que `render.yaml` y la CI usan `requirements-api.txt`. Toda dependencia nueva del backend debe agregarse a los dos archivos.
 
 ## Limitaciones
 
