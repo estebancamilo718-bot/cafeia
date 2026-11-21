@@ -96,7 +96,11 @@ En la interfaz, elegir transporte **Streamable HTTP** y la URL:
 - local: `http://127.0.0.1:8000/clasificador/mcp` o `http://127.0.0.1:8000/clima/mcp`;
 - producción, después del merge: `https://cafeia-jiwk.onrender.com/clasificador/mcp` o `/clima/mcp`.
 
-Luego se listan las herramientas y se ejecuta, por ejemplo, `pronostico` con `ciudad = Ibagué`. Este paso con MCP Inspector no se ejecutó durante esta verificación. Los servidores sí se probaron con el cliente oficial de Python por HTTP, como se describe arriba.
+Luego se listan las herramientas y se ejecuta, por ejemplo, `pronostico` con `ciudad = Ibagué`.
+
+### Comprobación con MCP Inspector (2026-11-17)
+
+Después de la verificación anterior, los dos servidores locales se agregaron a MCP Inspector v2.15.0 con transporte Streamable HTTP. Inspector negoció el protocolo `2025-11-25` y listó las dos herramientas de cada servidor. Se ejecutaron `estado_modelo` y `pronostico` (Ibagué, 3 días), y el panel de mensajes mostró los `tools/list` y `tools/call` correspondientes con estado OK.
 
 ## Limitaciones
 
